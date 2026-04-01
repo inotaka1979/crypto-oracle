@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0e17">
+<title>Crypto Oracle AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0a0e17; --card: rgba(16,22,38,0.85); --border: rgba(255,255,255,0.06);
+  --text: #e8eaf0; --dim: #6b7a94; --green: #00ffaa; --red: #ff4466;
+  --cyan: #4dd0e1; --gold: #ffd866; --orange: #ff8855; --blue: #00aaff;
+  --mono: 'JetBrains Mono', monospace; --sans: 'Noto Sans JP', sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+body::before { content:''; position:fixed; inset:0; background: radial-gradient(ellipse 80% 50% at 20% 20%, rgba(0,180,216,0.06) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 80%, rgba(0,255,136,0.03) 0%, transparent 55%); pointer-events:none; z-index:0; }
+.app { position:relative; z-index:1; max-width:480px; margin:0 auto; padding:0 0 16px; }
+
+/* Header */
+.header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:50; background:rgba(10,14,23,0.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+.header-left { display:flex; align-items:center; gap:8px; }
+.header-title { font-family:var(--mono); font-size:13px; font-weight:700; color:var(--cyan); }
+.header-ver { font-size:9px; color:var(--dim); }
+.header-right { display:flex; align-items:center; gap:8px; }
+.cur-toggle { font-family:var(--mono); font-size:10px; padding:3px 8px; border-radius:5px; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--cyan); }
+.cur-toggle.active { background:rgba(0,180,216,0.15); border-color:var(--cyan); }
+.live-badge { font-size:9px; color:var(--green); display:flex; align-items:center; gap:3px; }
+.live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* Coin Selector */
+.coin-tabs { display:flex; gap:4px; padding:8px 16px; overflow-x:auto; scrollbar-width:none; }
+.coin-tabs::-webkit-scrollbar { display:none; }
+.coin-tab { font-family:var(--mono); font-size:11px; font-weight:700; padding:6px 12px; border-radius:8px; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--dim); white-space:nowrap; flex-shrink:0; transition:all 0.2s; }
+.coin-tab.active { background:rgba(0,180,216,0.12); border-color:var(--cyan); color:var(--cyan); }
+
+/* Status bar */
+.status-bar { padding:4px 16px; font-size:10px; color:var(--dim); display:flex; justify-content:space-between; }
+
+/* Alert bars */
+.alert-bar { display:none; margin:4px 16px; padding:8px 12px; border-radius:8px; font-size:11px; }
+.alert-vol { background:rgba(255,136,85,0.06); border:1px solid rgba(255,136,85,0.2); color:var(--orange); }
+.alert-anomaly { background:rgba(255,68,102,0.06); border:1px solid rgba(255,68,102,0.2); color:var(--red); }
+
+/* Price header */
+.price-header { padding:8px 16px; }
+.price-main { font-family:var(--mono); font-size:28px; font-weight:700; }
+.price-change { font-family:var(--mono); font-size:13px; margin-left:8px; }
+.decomp-line { font-size:10px; color:var(--dim); margin-top:2px; }
+
+/* FX bar */
+.fx-bar { margin:2px 16px; padding:4px 10px; background:rgba(255,136,0,0.04); border:1px solid rgba(255,136,0,0.1); border-radius:6px; font-size:9px; font-family:var(--mono); color:rgba(255,255,255,0.4); display:none; justify-content:space-between; align-items:center; }
+
+/* Recommendation panel */
+.rec-panel { margin:8px 16px; padding:12px; border-radius:12px; background:var(--card); border:1px solid var(--border); }
+.rec-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.rec-action { font-size:16px; font-weight:900; }
+.rec-stars { font-size:12px; }
+.rec-details { font-size:11px; color:var(--dim); line-height:1.6; }
+.rec-details span { font-family:var(--mono); }
+
+/* Entry/Exit */
+.entry-exit { margin:4px 16px; padding:8px 12px; background:var(--card); border:1px solid var(--border); border-radius:10px; font-size:10px; display:none; }
+.ee-row { display:flex; justify-content:space-between; padding:2px 0; }
+.ee-label { color:var(--dim); }
+.ee-val { font-family:var(--mono); font-weight:700; }
+
+/* Chart controls */
+.chart-controls { display:flex; gap:4px; padding:6px 16px; flex-wrap:wrap; }
+.ctrl-group { display:flex; gap:2px; background:rgba(255,255,255,0.03); border-radius:6px; padding:2px; }
+.ctrl-btn { font-size:9px; padding:4px 8px; border:none; border-radius:4px; cursor:pointer; background:transparent; color:var(--dim); font-family:var(--mono); transition:all 0.15s; }
+.ctrl-btn.active { background:rgba(0,180,216,0.15); color:var(--cyan); }
+
+/* Chart */
+.chart-wrap { margin:0 16px; height:240px; position:relative; }
+.chart-wrap canvas { width:100% !important; height:100% !important; }
+
+/* Tabs */
+.tab-bar { display:flex; gap:0; margin:12px 16px 0; border-bottom:1px solid var(--border); }
+.tab-btn { flex:1; padding:8px; font-size:11px; text-align:center; cursor:pointer; border:none; background:transparent; color:var(--dim); font-family:var(--sans); border-bottom:2px solid transparent; transition:all 0.2s; }
+.tab-btn.active { color:var(--cyan); border-bottom-color:var(--cyan); }
+.tab-content { display:none; padding:12px 16px; }
+.tab-content.active { display:block; }
+
+/* Tab: Gauge */
+.gauge-wrap { display:flex; justify-content:center; margin:12px 0; }
+.gauge-circle { width:120px; height:120px; border-radius:50%; border:6px solid var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.gauge-val { font-family:var(--mono); font-size:28px; font-weight:700; }
+.gauge-label { font-size:10px; color:var(--dim); }
+.gauge-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.gauge-item { text-align:center; padding:8px; background:rgba(255,255,255,0.02); border-radius:8px; }
+.gauge-item-val { font-family:var(--mono); font-size:14px; font-weight:700; }
+.gauge-item-lbl { font-size:9px; color:var(--dim); }
+
+/* Tab: Model */
+.model-info { font-size:11px; color:var(--dim); line-height:1.8; }
+.model-info strong { color:var(--text); }
+
+/* Tab: Backtest */
+.bt-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; text-align:center; }
+.bt-val { font-family:var(--mono); font-size:18px; font-weight:700; }
+.bt-lbl { font-size:9px; color:var(--dim); }
+.fc-table { width:100%; font-size:10px; border-collapse:collapse; margin-top:8px; }
+.fc-table th { text-align:left; padding:4px; color:var(--dim); border-bottom:1px solid var(--border); font-weight:500; }
+.fc-table td { padding:4px; font-family:var(--mono); border-bottom:1px solid rgba(255,255,255,0.03); }
+
+/* Tab: Verify */
+.verify-summary { text-align:center; margin-bottom:12px; }
+.verify-acc { font-family:var(--mono); font-size:24px; font-weight:700; }
+.verify-list { font-size:10px; max-height:200px; overflow-y:auto; }
+.verify-row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--border); }
+
+/* Loading */
+.loading-overlay { position:fixed; inset:0; z-index:200; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; }
+.progress-bar-bg { width:200px; height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+.progress-bar-fill { height:100%; background:var(--cyan); border-radius:2px; transition:width 0.3s; width:0; }
+.progress-text { font-size:11px; color:var(--dim); }
+
+.disclaimer { text-align:center; font-size:8px; color:#3a4050; padding:16px; margin:0 16px; border-top:1px solid var(--border); }
+.hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--cyan)">CRYPTO ORACLE</div>
+  <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+  <div class="progress-text" id="progressText">初期化中...</div>
+</div>
+
+<div class="app">
+  <div class="header">
+    <div class="header-left">
+      <span class="header-title">CRYPTO ORACLE</span>
+      <span class="header-ver">ML予測 v5</span>
+    </div>
+    <div class="header-right">
+      <button class="cur-toggle active" id="btnJPY" onclick="setCurrency('jpy')">&#165;JPY</button>
+      <button class="cur-toggle" id="btnUSD" onclick="setCurrency('usd')">$USD</button>
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    </div>
+  </div>
+
+  <div class="coin-tabs" id="coinTabs"></div>
+  <div class="status-bar"><span id="statusText">データ読込中...</span><span id="countdownText"></span></div>
+  <div class="alert-bar alert-vol" id="alertVol"></div>
+  <div class="alert-bar alert-anomaly" id="alertAnomaly"></div>
+
+  <div class="price-header">
+    <div style="display:flex;align-items:baseline">
+      <span class="price-main" id="priceMain">---</span>
+      <span class="price-change" id="priceChange"></span>
+    </div>
+    <div class="decomp-line" id="decompLine"></div>
+  </div>
+  <div class="fx-bar" id="fxBar"></div>
+
+  <div class="rec-panel">
+    <div class="rec-row">
+      <span id="recIcon" style="font-size:24px">&#x1F7E1;</span>
+      <span class="rec-action" id="recAction">---</span>
+      <span class="rec-stars" id="recStars"></span>
+    </div>
+    <div class="rec-details" id="recDetails"></div>
+  </div>
+
+  <div class="entry-exit" id="entryExit"></div>
+
+  <div class="chart-controls">
+    <div class="ctrl-group" id="chartTypeGroup">
+      <button class="ctrl-btn active" data-type="line">ライン</button>
+      <button class="ctrl-btn" data-type="candle">ローソク</button>
+    </div>
+    <div class="ctrl-group" id="tfGroup">
+      <button class="ctrl-btn" data-tf="1h">1H</button>
+      <button class="ctrl-btn" data-tf="4h">4H</button>
+      <button class="ctrl-btn active" data-tf="1d">日</button>
+      <button class="ctrl-btn" data-tf="1w">週</button>
+    </div>
+    <div class="ctrl-group" id="periodGroup">
+      <button class="ctrl-btn" data-period="1d">1日</button>
+      <button class="ctrl-btn" data-period="1w">1週</button>
+      <button class="ctrl-btn" data-period="1m">1月</button>
+      <button class="ctrl-btn active" data-period="3m">3月</button>
+      <button class="ctrl-btn" data-period="1y">1年</button>
+    </div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="gauge">判定ゲージ</button>
+    <button class="tab-btn" data-tab="model">モデル詳細</button>
+    <button class="tab-btn" data-tab="backtest">バックテスト</button>
+    <button class="tab-btn" data-tab="verify">検証</button>
+  </div>
+
+  <div class="tab-content active" id="tabGauge">
+    <div class="gauge-wrap"><div class="gauge-circle" id="gaugeCircle"><div class="gauge-val" id="gaugeVal">--</div><div class="gauge-label">総合スコア</div></div></div>
+    <div class="gauge-grid" id="gaugeGrid"></div>
+  </div>
+  <div class="tab-content" id="tabModel"><div class="model-info" id="modelInfo"></div></div>
+  <div class="tab-content" id="tabBacktest">
+    <div class="bt-stats" id="btStats"></div>
+    <div style="margin-top:12px;font-size:11px;color:var(--dim)"><strong>7日予測</strong></div>
+    <table class="fc-table" id="fcTable"></table>
+  </div>
+  <div class="tab-content" id="tabVerify">
+    <div class="verify-summary" id="verifySummary"></div>
+    <div class="verify-list" id="verifyList"></div>
+  </div>
+
+  <div class="disclaimer">
+    &#9888;&#65039; 投資助言ではありません。予測は統計モデルによる参考情報です。<br>
+    暗号資産の取引は自己責任で行ってください。CoinGecko API使用。
+  </div>
+</div>
+
+<script>
+var COINS = {{ coins | tojson }};
+var currentCoin = COINS[0].id;
+var currency = 'jpy';
+var coinData = {};
+var chartInstance = null;
+var refreshTimer = null;
+var countdown = 120;
+
+var MODEL_DESC = {
+  bitcoin: {profile:'A', models:'Adaptive + MeanRev5', desc:'慣性判定とSMA5回帰の組合せ。トレンド期に高精度。', verified:'方向精度75%, MAPE 2.07%'},
+  ethereum: {profile:'A', models:'Adaptive + MeanRev5', desc:'BTCと同様の大型銘柄向け構成。', verified:'方向精度80%, MAPE 3.44%'},
+  ripple: {profile:'B', models:'Adaptive + RSI2', desc:'慣性判定と短期RSIで買われ/売られ過ぎ検知。', verified:'方向精度65%, MAPE 4.46%'},
+  stellar: {profile:'C', models:'Streak + Bollinger', desc:'連続性とボリンジャーバンド回帰。中型銘柄向け。', verified:'方向精度70%, MAPE 6.02%'},
+  dogecoin: {profile:'D', models:'Streak + Adaptive', desc:'連続性と慣性判定。ミーム銘柄の急変動対応。', verified:'方向精度70%, MAPE 6.64%'},
+  'shiba-inu': {profile:'E', models:'RSI2', desc:'2期間RSI単体。超低価格帯の買われ/売られ過ぎ検知。', verified:'方向精度75%, MAPE 10.09%'}
+};
+
+function renderCoinTabs() {
+  var el = document.getElementById('coinTabs');
+  el.innerHTML = COINS.map(function(c) {
+    return '<button class="coin-tab ' + (c.id === currentCoin ? 'active' : '') + '" onclick="selectCoin(\'' + c.id + '\')">' + c.sym + '</button>';
+  }).join('');
+}
+
+function selectCoin(id) {
+  currentCoin = id;
+  renderCoinTabs();
+  if (coinData[id]) renderData(coinData[id], id);
+  loadCoinData(id);
+}
+
+function setCurrency(cur) {
+  currency = cur;
+  document.getElementById('btnJPY').classList.toggle('active', cur === 'jpy');
+  document.getElementById('btnUSD').classList.toggle('active', cur === 'usd');
+  if (coinData[currentCoin]) renderData(coinData[currentCoin], currentCoin);
+}
+
+function fmt(n, decimals) {
+  if (n == null) return '---';
+  if (Math.abs(n) >= 1) return n.toLocaleString('ja-JP', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+  return n.toFixed(Math.max(decimals, 8));
+}
+
+function fmtPct(n) {
+  if (n == null) return '---';
+  return (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+}
+
+async function loadCoinData(coinId) {
+  try {
+    var resp = await fetch('/api/data/' + coinId, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error(resp.status);
+    var data = await resp.json();
+    coinData[coinId] = data;
+    if (coinId === currentCoin) renderData(data, coinId);
+    savePrediction(coinId, data);
+  } catch(e) {
+    document.getElementById('statusText').textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function loadAllData() {
+  var overlay = document.getElementById('loadingOverlay');
+  var bar = document.getElementById('progressBar');
+  var text = document.getElementById('progressText');
+  for (var i = 0; i < COINS.length; i++) {
+    bar.style.width = ((i + 1) / COINS.length * 100) + '%';
+    text.textContent = COINS[i].name + ' 取得中...';
+    await loadCoinData(COINS[i].id);
+  }
+  bar.style.width = '100%';
+  text.textContent = '完了';
+  setTimeout(function() { overlay.classList.add('hidden'); }, 300);
+  document.getElementById('statusText').textContent = '更新完了';
+  startCountdown();
+}
+
+function startCountdown() {
+  countdown = 120;
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(function() {
+    countdown--;
+    document.getElementById('countdownText').textContent = countdown + '秒後に更新';
+    if (countdown <= 0) {
+      clearInterval(refreshTimer);
+      loadCoinData(currentCoin).then(function() { startCountdown(); });
+    }
+  }, 1000);
+}
+
+function renderData(data, coinId) {
+  var coin = COINS.find(function(c) { return c.id === coinId; });
+  var last = data.prices[data.prices.length - 1];
+  var prev = data.prices.length >= 2 ? data.prices[data.prices.length - 2] : last;
+  var change24 = ((last - prev) / prev) * 100;
+  var jpy_rate = data.jpy_rate || 150;
+
+  // Price header
+  var priceEl = document.getElementById('priceMain');
+  var changeEl = document.getElementById('priceChange');
+  var decompEl = document.getElementById('decompLine');
+
+  if (currency === 'jpy') {
+    var jpyPrice = last * jpy_rate;
+    priceEl.textContent = '\u00a5' + fmt(jpyPrice, jpyPrice >= 1 ? 0 : 4);
+    var d = data.decomposition;
+    if (d) {
+      decompEl.innerHTML = '内訳: ' + coin.sym +
+        ' <span style="color:' + (d.crypto_pct >= 0 ? 'var(--green)' : 'var(--red)') + '">' + d.crypto_label + '</span>' +
+        ' + <span style="color:' + (d.fx_pct >= 0 ? 'var(--orange)' : 'var(--blue)') + '">' + d.fx_label + '</span>';
+    }
+  } else {
+    priceEl.textContent = '$' + fmt(last, last >= 1 ? 2 : 8);
+    decompEl.innerHTML = '';
+  }
+  changeEl.textContent = fmtPct(change24);
+  changeEl.style.color = change24 >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // FX bar
+  var fxBar = document.getElementById('fxBar');
+  if (currency === 'jpy' && data.jpy_forecasts && data.jpy_forecasts.length > 1) {
+    fxBar.style.display = 'flex';
+    var fxFc = data.jpy_forecasts[1];
+    var fxChange = fxFc ? ((fxFc.rate - jpy_rate) / jpy_rate * 100) : 0;
+    fxBar.innerHTML = 'USD/JPY \u00a5' + jpy_rate.toFixed(1) +
+      ' <span style="color:' + (fxChange >= 0 ? 'var(--orange)' : 'var(--blue)') + '">' + fmtPct(fxChange) + '</span>' +
+      (fxFc ? ' \u2192 予測 \u00a5' + fxFc.rate.toFixed(1) : '');
+  } else {
+    fxBar.style.display = 'none';
+  }
+
+  // Alerts
+  var alertVol = document.getElementById('alertVol');
+  var alertAnomaly = document.getElementById('alertAnomaly');
+  alertVol.style.display = (data.reliability && data.reliability.alert) ? 'block' : 'none';
+  alertVol.textContent = (data.reliability && data.reliability.alert) || '';
+  alertAnomaly.style.display = data.anomaly ? 'block' : 'none';
+  alertAnomaly.textContent = data.anomaly || '';
+
+  // Recommendation
+  var rec = data.recommendation || {};
+  document.getElementById('recIcon').textContent = rec.icon || '\uD83D\uDFE1';
+  var recActionEl = document.getElementById('recAction');
+  recActionEl.textContent = rec.action || '---';
+  recActionEl.style.color = rec.color || 'var(--gold)';
+  document.getElementById('recStars').textContent = (data.reliability && data.reliability.stars) || '';
+  document.getElementById('recStars').style.color = (data.reliability && data.reliability.color) || 'var(--dim)';
+
+  var fd = data.forecast_decomposition;
+  var detailHtml = '';
+  if (currency === 'jpy' && fd) {
+    detailHtml += '1日先: <span>\u00a5' + fmt(fd.jpy_price, fd.jpy_price >= 1 ? 0 : 4) + '</span> (' + fmtPct(fd.jpy_total_pct) + ')<br>';
+    detailHtml += '内訳: ' + coin.sym + ' ' + fmtPct(fd.crypto_pct) + ' + ' + (fd.fx_pct >= 0 ? '円安' : '円高') + ' ' + fmtPct(fd.fx_pct) + '<br>';
+  } else {
+    detailHtml += '1日先: <span>$' + fmt(data.forecast && data.forecast[1] ? data.forecast[1].price : null, 2) + '</span> (' + fmtPct(data.day1_change) + ')<br>';
+  }
+  detailHtml += '7日先: <span>' + fmtPct(data.fc_change) + '</span> | ボラ: <span>' + (data.vol_regime || '---') + ' (' + (data.vol_value || 0) + '%)</span>';
+  document.getElementById('recDetails').innerHTML = detailHtml;
+
+  // Entry/Exit
+  var eeEl = document.getElementById('entryExit');
+  var ee = data.entry_exit;
+  if (ee) {
+    eeEl.style.display = 'block';
+    var prefix = currency === 'jpy' ? '\u00a5' : '$';
+    var mul = currency === 'jpy' ? jpy_rate : 1;
+    var dec = (ee.entry * mul >= 1) ? 0 : 6;
+    eeEl.innerHTML =
+      '<div class="ee-row"><span class="ee-label">' + (ee.direction === 'up' ? '買い' : '売り') + 'エントリー</span><span class="ee-val">' + prefix + fmt(ee.entry * mul, dec) + '</span></div>' +
+      '<div class="ee-row"><span class="ee-label">利確ターゲット</span><span class="ee-val" style="color:var(--green)">' + prefix + fmt(ee.target * mul, dec) + '</span></div>' +
+      '<div class="ee-row"><span class="ee-label">損切りライン</span><span class="ee-val" style="color:var(--red)">' + prefix + fmt(ee.stop_loss * mul, dec) + '</span></div>' +
+      '<div class="ee-row"><span class="ee-label">R/R比</span><span class="ee-val">' + ee.note + '</span></div>';
+  } else {
+    eeEl.style.display = 'none';
+  }
+
+  // Chart
+  renderChart(data);
+
+  // Gauge tab
+  var score = data.score || 0;
+  var scoreColor = score >= 65 ? 'var(--green)' : score >= 50 ? 'var(--gold)' : 'var(--red)';
+  document.getElementById('gaugeCircle').style.borderColor = scoreColor;
+  document.getElementById('gaugeVal').textContent = Math.round(score);
+  document.getElementById('gaugeVal').style.color = scoreColor;
+  document.getElementById('gaugeGrid').innerHTML =
+    '<div class="gauge-item"><div class="gauge-item-val" style="color:' + ((data.reliability && data.reliability.color) || 'var(--dim)') + '">' + ((data.reliability && data.reliability.label) || '---') + '</div><div class="gauge-item-lbl">信頼度</div></div>' +
+    '<div class="gauge-item"><div class="gauge-item-val">' + fmtPct(data.day1_change) + '</div><div class="gauge-item-lbl">1日先予測</div></div>' +
+    '<div class="gauge-item"><div class="gauge-item-val">' + fmtPct(data.fc_change) + '</div><div class="gauge-item-lbl">7日先予測</div></div>' +
+    '<div class="gauge-item"><div class="gauge-item-val">' + ((data.backtest && data.backtest.direction) || '--') + '%</div><div class="gauge-item-lbl">方向精度</div></div>';
+
+  // Model tab
+  var md = MODEL_DESC[coinId] || {};
+  document.getElementById('modelInfo').innerHTML =
+    '<strong>プロファイル: ' + (md.profile || '?') + '</strong><br>' +
+    'モデル構成: <strong>' + (md.models || '---') + '</strong><br><br>' +
+    (md.desc || '') + '<br><br>' +
+    '検証実績: <strong>' + (md.verified || '---') + '</strong><br><br>' +
+    'ボラティリティ: <strong>' + (data.vol_regime || '---') + '</strong> (日次変動率 ' + (data.vol_value || 0) + '%)<br>' +
+    (data.vol_regime === 'low' ? '<span style="color:var(--orange)">\u26A0\uFE0F 横ばい相場: 予測精度が低下する傾向あり</span>' : '') +
+    (data.vol_regime === 'high' ? '<span style="color:var(--green)">\u2705 トレンド相場: モデル高精度期待</span>' : '');
+
+  // Backtest tab
+  var bt = data.backtest || {};
+  document.getElementById('btStats').innerHTML =
+    '<div><div class="bt-val" style="color:var(--cyan)">' + (bt.direction || '--') + '%</div><div class="bt-lbl">方向精度</div></div>' +
+    '<div><div class="bt-val">' + (bt.mape || '--') + '%</div><div class="bt-lbl">MAPE</div></div>' +
+    '<div><div class="bt-val">' + (bt.n || '--') + '</div><div class="bt-lbl">テスト数</div></div>';
+
+  var fc = data.forecast || [];
+  var fcHtml = '<tr><th>日</th><th>予測</th><th>上限</th><th>下限</th></tr>';
+  for (var i = 0; i < fc.length; i++) {
+    var f = fc[i];
+    var fmul = currency === 'jpy' ? jpy_rate : 1;
+    var fpfx = currency === 'jpy' ? '\u00a5' : '$';
+    var fdec = (f.price * fmul >= 1) ? 0 : 6;
+    fcHtml += '<tr><td>' + (f.day === 0 ? '現在' : '+' + f.day + '日') + '</td>' +
+      '<td>' + fpfx + fmt(f.price * fmul, fdec) + '</td>' +
+      '<td style="color:var(--green)">' + fpfx + fmt(f.upper * fmul, fdec) + '</td>' +
+      '<td style="color:var(--red)">' + fpfx + fmt(f.lower * fmul, fdec) + '</td></tr>';
+  }
+  document.getElementById('fcTable').innerHTML = fcHtml;
+
+  // Verify tab
+  renderVerify(coinId);
+
+  document.getElementById('statusText').textContent =
+    new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}) + ' 更新';
+}
+
+function renderChart(data) {
+  var ctx = document.getElementById('mainChart');
+  if (chartInstance) chartInstance.destroy();
+
+  var prices = data.prices || [];
+  var dates = data.dates || [];
+  var fc = data.forecast || [];
+
+  var labels = dates.slice();
+  var mainData = prices.slice();
+
+  // 予測7日追加
+  var lastDate = dates[dates.length - 1];
+  for (var i = 1; i < fc.length; i++) {
+    var d = new Date(lastDate);
+    d.setDate(d.getDate() + fc[i].day);
+    labels.push(d.toISOString().slice(0, 10));
+    mainData.push(null);
+  }
+
+  var fcLine = new Array(prices.length - 1).fill(null);
+  fcLine.push(prices[prices.length - 1]);
+  for (var i = 1; i < fc.length; i++) fcLine.push(fc[i].price);
+
+  var upperLine = new Array(prices.length - 1).fill(null);
+  upperLine.push(prices[prices.length - 1]);
+  for (var i = 1; i < fc.length; i++) upperLine.push(fc[i].upper);
+
+  var lowerLine = new Array(prices.length - 1).fill(null);
+  lowerLine.push(prices[prices.length - 1]);
+  for (var i = 1; i < fc.length; i++) lowerLine.push(fc[i].lower);
+
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        { label: '価格', data: mainData, borderColor: '#4dd0e1', backgroundColor: 'rgba(77,208,225,0.05)', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.3 },
+        { label: '予測', data: fcLine, borderColor: '#00ffaa', borderWidth: 1.5, borderDash: [4,4], pointRadius: 0, fill: false, tension: 0.3 },
+        { label: '95%CI上限', data: upperLine, borderColor: 'transparent', backgroundColor: 'rgba(0,255,136,0.06)', borderWidth: 0, pointRadius: 0, fill: '+1' },
+        { label: '95%CI下限', data: lowerLine, borderColor: 'transparent', borderWidth: 0, pointRadius: 0, fill: false }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: {duration: 0},
+      interaction: {mode: 'index', intersect: false},
+      plugins: {
+        legend: {display: false},
+        tooltip: { backgroundColor: 'rgba(10,14,23,0.9)', titleColor: '#8ba4c4', bodyColor: '#e8eaf0', bodyFont: {family: "'JetBrains Mono'", size: 11} }
+      },
+      scales: {
+        x: { display: true, ticks: {maxTicksLimit: 6, color: '#4a5568', font: {size: 9}}, grid: {color: 'rgba(255,255,255,0.03)'} },
+        y: { display: true, position: 'right', ticks: {color: '#4a5568', font: {family: "'JetBrains Mono'", size: 9}}, grid: {color: 'rgba(255,255,255,0.03)'} }
+      }
+    }
+  });
+}
+
+// Prediction history
+function savePrediction(coinId, data) {
+  if (!data.forecast || !data.forecast[1]) return;
+  var key = 'crypto_predictions';
+  var history = JSON.parse(localStorage.getItem(key) || '[]');
+  var today = new Date().toISOString().slice(0, 10);
+  var existing = -1;
+  for (var i = 0; i < history.length; i++) {
+    if (history[i].coin === coinId && history[i].date === today) { existing = i; break; }
+  }
+  var entry = {
+    coin: coinId, date: today, time: new Date().toISOString(),
+    current: data.prices[data.prices.length - 1],
+    predicted: data.forecast[1].price,
+    direction: data.forecast[1].price > data.prices[data.prices.length - 1] ? 'up' : 'down',
+    actual: null
+  };
+  if (existing >= 0) history[existing] = entry;
+  else history.push(entry);
+  if (history.length > 540) history.splice(0, history.length - 540);
+  localStorage.setItem(key, JSON.stringify(history));
+}
+
+function verifyPredictions(coinId) {
+  var history = JSON.parse(localStorage.getItem('crypto_predictions') || '[]');
+  var data = coinData[coinId];
+  if (!data) return history;
+  var currentPrice = data.prices[data.prices.length - 1];
+  var today = new Date().toISOString().slice(0, 10);
+  var changed = false;
+  for (var i = 0; i < history.length; i++) {
+    var h = history[i];
+    if (h.coin === coinId && !h.actual && h.date < today) {
+      h.actual = currentPrice;
+      h.directionCorrect = (h.direction === 'up') === (currentPrice > h.current);
+      changed = true;
+    }
+  }
+  if (changed) localStorage.setItem('crypto_predictions', JSON.stringify(history));
+  return history;
+}
+
+function renderVerify(coinId) {
+  var history = verifyPredictions(coinId);
+  var mine = history.filter(function(h) { return h.coin === coinId; });
+  var verified = mine.filter(function(h) { return h.actual !== null; });
+  var correct = verified.filter(function(h) { return h.directionCorrect; }).length;
+  var acc = verified.length > 0 ? (correct / verified.length * 100) : 0;
+  var recent7 = verified.slice(-7);
+  var r7c = recent7.filter(function(h) { return h.directionCorrect; }).length;
+
+  document.getElementById('verifySummary').innerHTML =
+    '<div class="verify-acc" style="color:' + (acc >= 60 ? 'var(--green)' : 'var(--gold)') + '">' + acc.toFixed(0) + '%</div>' +
+    '<div style="font-size:10px;color:var(--dim)">累計精度 (' + correct + '/' + verified.length + ') \u2014 直近7日: ' + r7c + '/' + recent7.length + '</div>';
+
+  var listEl = document.getElementById('verifyList');
+  var rows = mine.slice(-10).reverse();
+  listEl.innerHTML = rows.map(function(h) {
+    var icon = h.actual === null ? '\u23F3' : h.directionCorrect ? '\u2705' : '\u274C';
+    return '<div class="verify-row"><span>' + h.date.slice(5) + ' ' + icon + '</span>' +
+      '<span style="font-family:var(--mono)">$' + fmt(h.current, 2) + ' \u2192 ' + (h.actual ? '$' + fmt(h.actual, 2) : '---') + '</span>' +
+      '<span style="color:' + (h.direction === 'up' ? 'var(--green)' : 'var(--red)') + '">' + (h.direction === 'up' ? '\u2191' : '\u2193') + '</span></div>';
+  }).join('');
+}
+
+// Tab events
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+    btn.classList.add('active');
+    var tabName = btn.dataset.tab;
+    document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
+  });
+});
+
+// Chart control events
+document.querySelectorAll('#chartTypeGroup .ctrl-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#chartTypeGroup .ctrl-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  });
+});
+document.querySelectorAll('#tfGroup .ctrl-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#tfGroup .ctrl-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  });
+});
+document.querySelectorAll('#periodGroup .ctrl-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#periodGroup .ctrl-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  });
+});
+
+// Init
+document.addEventListener('DOMContentLoaded', function() {
+  renderCoinTabs();
+  loadAllData();
+});
+</script>
+</body>
+</html>
