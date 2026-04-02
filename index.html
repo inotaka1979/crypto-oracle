@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.coingecko.com; img-src 'self' data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.coingecko.com; img-src 'self' data:;">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Crypto Oracle">
@@ -12,6 +12,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 :root{--bg:#0a0e17;--card:#111827;--border:#1e293b;--accent:#22d3ee;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--text:#e2e8f0;--dim:#64748b;--gold:#fbbf24}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -123,7 +124,7 @@ body{font-family:'Noto Sans JP','JetBrains Mono',sans-serif;background:var(--bg)
   </div>
 </div>
 
-<div class="chart-container"><canvas id="mainChart"></canvas></div>
+<div class="chart-container"><canvas id="mainChart"></canvas><div id="tvChart" style="display:none;width:100%;height:100%"></div></div>
 <div class="chart-controls" id="chartControls">
   <button class="chart-btn active" data-group="type" onclick="setChartType('line',this)">ライン</button>
   <button class="chart-btn" data-group="type" onclick="setChartType('candle',this)">ローソク</button>
@@ -388,6 +389,7 @@ function parseDailyOHLCV(d){
   };
 }
 
+
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 
 async function loadAllData(){
@@ -405,7 +407,7 @@ async function loadAllData(){
   for(var i=0;i<COINS.length;i++){
     var c=COINS[i];
     setStatus(c.sym+' 取得中... ('+(i+1)+'/'+COINS.length+')');
-    var data=await fetchWithFallback(API+'/coins/'+c.id+'/market_chart?vs_currency=usd&days=180');
+    var data=await fetchWithFallback(API+'/coins/'+c.id+'/market_chart?vs_currency=usd&days=90');
     if(data&&data.prices){
       coinData[c.id]=parseDailyOHLCV(data);
     }
@@ -540,92 +542,88 @@ function renderCoin(coin){
 }
 
 // ═══ CHART ═══
+var tvChart=null;
+
+function destroyTvChart(){
+  if(tvChart){tvChart.remove();tvChart=null;}
+}
+
 function renderChart(data,coin){
-  var ctx=document.getElementById('mainChart');
-  if(chart)chart.destroy();
-  var n=Math.min(chartDays,data.dates.length);
-  var dates=data.dates.slice(-n);
-  var prices=data.prices.slice(-n);
+  var canvasEl=document.getElementById('mainChart');
+  var tvEl=document.getElementById('tvChart');
   var rate=currency==='jpy'?(jpyRate||158.6):1;
 
   if(chartType==='candle'){
-    // ローソク足（lineチャート上にプラグインで描画）
-    var cOpens=data.opens.slice(-n).map(function(v){return v*rate});
-    var cHighs=data.highs.slice(-n).map(function(v){return v*rate});
-    var cLows=data.lows.slice(-n).map(function(v){return v*rate});
-    var cCloses=prices.map(function(v){return v*rate});
+    // --- lightweight-charts (TradingView) ローソク足 ---
+    if(chart){chart.destroy();chart=null;}
+    canvasEl.style.display='none';
+    tvEl.style.display='block';
+    destroyTvChart();
 
-    var candlePlugin={
-      id:'candlestick',
-      afterDatasetsDraw:function(chart){
-        var meta=chart.getDatasetMeta(0);
-        var yScale=chart.scales.y;
-        var chartCtx=chart.ctx;
-        meta.data.forEach(function(point,i){
-          var x=point.x;
-          var o=yScale.getPixelForValue(cOpens[i]);
-          var h=yScale.getPixelForValue(cHighs[i]);
-          var l=yScale.getPixelForValue(cLows[i]);
-          var c=yScale.getPixelForValue(cCloses[i]);
-          var isUp=cCloses[i]>=cOpens[i];
-          var color=isUp?'#10b981':'#ef4444';
-          var w=Math.max(3,Math.min(12,(chart.width/n)*0.6));
-
-          // ヒゲ
-          chartCtx.beginPath();
-          chartCtx.strokeStyle=color;
-          chartCtx.lineWidth=1;
-          chartCtx.moveTo(x,h);
-          chartCtx.lineTo(x,l);
-          chartCtx.stroke();
-
-          // 実体
-          var top=isUp?c:o;
-          var bot=isUp?o:c;
-          var bodyH=Math.max(1,bot-top);
-          chartCtx.fillStyle=color;
-          chartCtx.fillRect(x-w/2,top,w,bodyH);
-        });
-      }
-    };
-
-    chart=new Chart(ctx,{
-      type:'line',
-      data:{
-        labels:dates.map(function(d){return d.slice(5)}),
-        datasets:[{
-          data:cCloses,
-          borderColor:'transparent',
-          backgroundColor:'transparent',
-          pointRadius:0,
-          fill:false
-        }]
-      },
-      options:{
-        responsive:true,maintainAspectRatio:false,
-        animation:{duration:0},
-        plugins:{legend:{display:false},tooltip:{
-          callbacks:{
-            label:function(tip){
-              var i=tip.dataIndex;
-              return 'O:'+cOpens[i].toFixed(0)+' H:'+cHighs[i].toFixed(0)+' L:'+cLows[i].toFixed(0)+' C:'+cCloses[i].toFixed(0);
-            }
-          }
-        }},
-        scales:{
-          x:{ticks:{maxTicksLimit:6,font:{size:9},color:'#64748b'},grid:{display:false}},
-          y:{beginAtZero:false,
-            min:Math.min.apply(null,cLows)*0.998,
-            max:Math.max.apply(null,cHighs)*1.002,
-            ticks:{font:{size:9},color:'#64748b',callback:function(v){return v>1000?Math.round(v/1000)+'k':v.toPrecision(3)}},grid:{color:'rgba(30,41,59,0.5)'}}
-        }
-      },
-      plugins:[candlePlugin]
+    // Build candle + volume data from parseDailyOHLCV result
+    var n=Math.min(chartDays,data.dates.length);
+    var candleData=[];
+    var volData=[];
+    data.dates.slice(-n).forEach(function(d,i){
+      var idx=data.dates.length-n+i;
+      var ts=Math.floor(new Date(d+'T00:00:00Z').getTime()/1000);
+      var o=data.opens[idx]*rate, h=data.highs[idx]*rate, l=data.lows[idx]*rate, c=data.prices[idx]*rate;
+      candleData.push({time:ts,open:o,high:h,low:l,close:c});
+      var vol=data.volumes[idx]||0;
+      volData.push({time:ts,value:vol,color:c>=o?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'});
     });
+
+    tvChart=LightweightCharts.createChart(tvEl,{
+      width:tvEl.clientWidth,
+      height:tvEl.clientHeight,
+      layout:{background:{type:'solid',color:'#111827'},textColor:'#64748b',fontSize:9},
+      grid:{vertLines:{color:'rgba(30,41,59,0.5)'},horzLines:{color:'rgba(30,41,59,0.5)'}},
+      crosshair:{mode:0},
+      rightPriceScale:{borderColor:'#1e293b'},
+      timeScale:{borderColor:'#1e293b',timeVisible:false,fixLeftEdge:true,fixRightEdge:true},
+      localization:{
+        priceFormatter:function(p){
+          if(p>=1000000)return(p/1000000).toFixed(2)+'M';
+          if(p>=1000)return Math.round(p).toLocaleString();
+          return p.toPrecision(4);
+        }
+      }
+    });
+
+    var candleSeries=tvChart.addCandlestickSeries({
+      upColor:'#10b981',downColor:'#ef4444',
+      borderUpColor:'#10b981',borderDownColor:'#ef4444',
+      wickUpColor:'#10b981',wickDownColor:'#ef4444'
+    });
+    candleSeries.setData(candleData);
+
+    // Volume as histogram overlay
+    var volumeSeries=tvChart.addHistogramSeries({
+      priceFormat:{type:'volume'},
+      priceScaleId:'vol'
+    });
+    tvChart.priceScale('vol').applyOptions({scaleMargins:{top:0.8,bottom:0}});
+    if(volData.length)volumeSeries.setData(volData);
+
+    tvChart.timeScale().fitContent();
+
+    // Resize handling
+    var ro=new ResizeObserver(function(){
+      if(tvChart)tvChart.applyOptions({width:tvEl.clientWidth,height:tvEl.clientHeight});
+    });
+    ro.observe(tvEl);
+
   }else{
-    // ラインチャート
-    var displayPrices=prices.map(function(p){return p*rate});
-    chart=new Chart(ctx,{
+    // --- Chart.js ラインチャート ---
+    destroyTvChart();
+    tvEl.style.display='none';
+    canvasEl.style.display='block';
+    if(chart){chart.destroy();chart=null;}
+
+    var n2=Math.min(chartDays,data.dates.length);
+    var dates=data.dates.slice(-n2);
+    var displayPrices=data.prices.slice(-n2).map(function(p){return p*rate});
+    chart=new Chart(canvasEl,{
       type:'line',
       data:{
         labels:dates.map(function(d){return d.slice(5)}),
