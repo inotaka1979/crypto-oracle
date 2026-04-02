@@ -2,1158 +2,712 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
-<title>Crypto Oracle AI</title>
-<link rel="manifest" href="manifest.json">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.coingecko.com; img-src 'self' data:;">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Crypto Oracle">
+<title>Crypto Oracle AI v2</title>
+<link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#e94560">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root {
-  --bg1: #0a0e1a; --bg2: #0a1628; --card: #111a2e; --card2: #162038;
-  --border: #1e3050; --text: #e0e8f0; --dim: #7a8a9a;
-  --green: #00ffaa; --red: #ff4466; --blue: #3388ff; --yellow: #ffd866;
-  --orange: #ff8855; --cyan: #66ffcc;
-}
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font-family: 'Noto Sans JP', sans-serif;
-  background: #06080f;
-  color: var(--text); min-height: 100vh;
-  -webkit-tap-highlight-color: transparent;
-  overflow-x: hidden;
-}
-body::before {
-  content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background:
-    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(51,136,255,0.12) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(233,69,96,0.10) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 50% 50%, rgba(0,255,170,0.05) 0%, transparent 50%);
-  pointer-events: none; z-index: 0;
-}
-body::after {
-  content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 20%, transparent 70%);
-  -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 20%, transparent 70%);
-  pointer-events: none; z-index: 0;
-}
-.container { position: relative; z-index: 1; }
-.mono { font-family: 'JetBrains Mono', monospace; }
-.container { max-width: 480px; margin: 0 auto; padding: 8px; position: relative; z-index: 1; }
-
-/* Header */
-.header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 10px;
-}
-.header h1 { font-size: 16px; font-weight: 700; }
-.header h1 span { color: var(--green); }
-.badge {
-  font-size: 10px; padding: 3px 10px; border-radius: 12px;
-  background: rgba(0,255,170,0.08); color: var(--cyan);
-  border: 1px solid rgba(0,255,170,0.2);
-}
-.badge.live { color: var(--green); animation: pulse 2s infinite;
-  box-shadow: 0 0 8px rgba(0,255,170,0.2);
-}
-@keyframes pulse { 50% { opacity: 0.6; } }
-
-/* Currency toggle */
-.curr-toggle {
-  display: flex; gap: 2px; background: rgba(17,26,46,0.6); border-radius: 8px;
-  padding: 2px; border: 1px solid rgba(255,255,255,0.06);
-}
-.curr-btn {
-  padding: 4px 10px; border: none; border-radius: 6px; cursor: pointer;
-  font-size: 12px; font-weight: 600; background: transparent; color: var(--dim);
-  font-family: 'Noto Sans JP', sans-serif; transition: all 0.2s ease;
-}
-.curr-btn.active {
-  background: linear-gradient(135deg, #3388ff, #2266dd); color: #fff;
-  box-shadow: 0 2px 8px rgba(51,136,255,0.3);
-}
-
-/* Selector */
-.selector {
-  display: flex; gap: 6px; align-items: center; margin-bottom: 8px;
-}
-.selector select {
-  flex: 1; padding: 8px 10px;
-  background: rgba(17,26,46,0.6); color: var(--text);
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; font-size: 14px;
-  font-family: 'Noto Sans JP', sans-serif;
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-}
-.refresh-btn {
-  padding: 8px 14px;
-  background: linear-gradient(135deg, rgba(51,136,255,0.2), rgba(0,255,170,0.1));
-  color: var(--cyan);
-  border: 1px solid rgba(102,255,204,0.2); border-radius: 10px; cursor: pointer;
-  font-size: 14px; white-space: nowrap; transition: all 0.2s ease;
-}
-.refresh-btn:active {
-  background: linear-gradient(135deg, rgba(51,136,255,0.3), rgba(0,255,170,0.2));
-  transform: scale(0.96);
-}
-
-/* Status bar */
-.status-bar {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 11px; color: var(--dim); padding: 4px 0; margin-bottom: 8px;
-}
-.countdown { color: var(--cyan); font-family: 'JetBrains Mono', monospace; }
-
-/* Recommendation panel */
-.rec-panel {
-  background: rgba(17,26,46,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;
-  padding: 12px; margin-bottom: 8px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
-}
-.rec-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.rec-icon { font-size: 32px; }
-.rec-action { font-size: 22px; font-weight: 700; }
-.rec-stars { font-size: 14px; margin-top: 2px; }
-.rec-grid {
-  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin-bottom: 10px;
-}
-.rec-cell {
-  background: rgba(22,32,56,0.6); border-radius: 10px; padding: 8px 6px;
-  text-align: center; border: 1px solid rgba(255,255,255,0.03);
-}
-.rec-cell .label { font-size: 10px; color: var(--dim); margin-bottom: 2px; }
-.rec-cell .value { font-size: 13px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-
-/* Day1 highlight */
-.day1-box {
-  background: linear-gradient(135deg, rgba(51,136,255,0.12), rgba(0,255,170,0.06));
-  border: 1px solid rgba(51,136,255,0.3); border-radius: 12px;
-  padding: 12px; margin-bottom: 10px; text-align: center;
-  box-shadow: 0 0 20px rgba(51,136,255,0.1);
-}
-.day1-box .title { font-size: 11px; color: var(--blue); margin-bottom: 4px; }
-.day1-box .pred { font-size: 20px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-.day1-box .change { font-size: 13px; margin-top: 2px; }
-
-/* Scenario */
-.scenario {
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
-}
-.scenario-item {
-  background: rgba(22,32,56,0.6); border-radius: 10px; padding: 8px; text-align: center;
-  border: 1px solid rgba(255,255,255,0.03);
-}
-.scenario-item .label { font-size: 10px; color: var(--dim); }
-.scenario-item .val { font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
-
-/* Chart */
-.chart-wrap {
-  background: rgba(17,26,46,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;
-  padding: 10px; margin-bottom: 8px; position: relative;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
-}
-.chart-wrap canvas { width: 100% !important; height: 220px !important; }
-
-/* Tabs */
-.tabs {
-  display: flex; gap: 2px; margin-bottom: 8px;
-  background: rgba(17,26,46,0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  border-radius: 12px; padding: 3px; border: 1px solid rgba(255,255,255,0.06);
-}
-.tab-btn {
-  flex: 1; padding: 7px; border: none; border-radius: 10px;
-  background: transparent; color: var(--dim); font-size: 11px; cursor: pointer;
-  font-family: 'Noto Sans JP', sans-serif; font-weight: 500;
-  transition: all 0.2s ease;
-}
-.tab-btn.active {
-  background: rgba(51,136,255,0.15); color: var(--cyan);
-  box-shadow: 0 0 12px rgba(51,136,255,0.15);
-}
-
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-
-.tab-panel {
-  background: rgba(17,26,46,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;
-  padding: 12px; margin-bottom: 8px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
-}
-
-/* Gauge */
-.gauge-wrap { text-align: center; padding: 10px 0; }
-.gauge-svg { width: 180px; height: 110px; }
-.gauge-label { font-size: 28px; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
-.gauge-sub { font-size: 12px; color: var(--dim); margin-top: 4px; }
-
-/* Model table */
-.model-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.model-table th {
-  text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--border);
-  color: var(--dim); font-weight: 500; font-size: 10px;
-}
-.model-table td {
-  padding: 6px 4px; border-bottom: 1px solid #0d1825;
-  font-family: 'JetBrains Mono', monospace; font-size: 11px;
-}
-.model-table tr:nth-child(-n+3) td:first-child { color: var(--green); }
-.rank-badge {
-  display: inline-block; width: 18px; height: 18px; line-height: 18px;
-  text-align: center; border-radius: 50%; font-size: 10px; font-weight: 700;
-  margin-right: 4px;
-}
-.rank-1 { background: #ffd700; color: #000; }
-.rank-2 { background: #c0c0c0; color: #000; }
-.rank-3 { background: #cd7f32; color: #fff; }
-
-/* Info items */
-.info-row {
-  display: flex; justify-content: space-between; padding: 6px 0;
-  border-bottom: 1px solid #0d1825; font-size: 12px;
-}
-.info-row .k { color: var(--dim); }
-.info-row .v { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
-
-/* Disclaimer */
-.disclaimer {
-  text-align: center; font-size: 10px; color: #4a5a6a;
-  padding: 12px 0; border-top: 1px solid var(--border); margin-top: 8px;
-}
-
-/* Loading */
-.loading {
-  display: flex; align-items: center; justify-content: center;
-  padding: 40px; color: var(--dim);
-}
-.spinner {
-  width: 20px; height: 20px; border: 2px solid var(--border);
-  border-top-color: var(--cyan); border-radius: 50%;
-  animation: spin 0.8s linear infinite; margin-right: 8px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.hidden { display: none; }
-
-/* Error toast */
-.error-toast {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-  background: #2a1020; border: 1px solid var(--red); color: var(--red);
-  padding: 8px 16px; border-radius: 8px; font-size: 12px; z-index: 100;
-  display: none;
-}
+:root{--bg:#0a0e17;--card:#111827;--border:#1e293b;--accent:#22d3ee;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--text:#e2e8f0;--dim:#64748b;--gold:#fbbf24}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans JP','JetBrains Mono',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-tap-highlight-color:transparent}
+.header{background:linear-gradient(135deg,#0f172a,#1e1b4b);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.logo{font-family:'JetBrains Mono';font-weight:800;font-size:16px;letter-spacing:2px;background:linear-gradient(90deg,var(--accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ver{font-size:10px;color:var(--dim);margin-left:8px}
+.controls{display:flex;gap:6px;align-items:center}
+.btn-cur{padding:4px 10px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--dim);font-size:11px;cursor:pointer}
+.btn-cur.active{background:var(--accent);color:#0a0e17;border-color:var(--accent);font-weight:700}
+.live{color:var(--green);font-size:11px;display:flex;align-items:center;gap:4px}
+.live::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.coins{display:flex;gap:6px;padding:10px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.coin-btn{padding:6px 14px;border-radius:16px;border:1px solid var(--border);background:var(--card);color:var(--dim);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:.2s}
+.coin-btn.active{background:linear-gradient(135deg,#164e63,#1e3a5f);color:var(--accent);border-color:var(--accent)}
+.status{padding:4px 16px;display:flex;justify-content:space-between;font-size:10px;color:var(--dim)}
+.price-section{padding:8px 16px}
+.price-main{font-family:'JetBrains Mono';font-size:28px;font-weight:800}
+.price-change{font-size:13px;margin-left:8px}
+.up{color:var(--green)}.down{color:var(--red)}
+.prediction-bar{margin:8px 16px;padding:12px;background:var(--card);border-radius:12px;border:1px solid var(--border)}
+.pred-label{font-size:10px;color:var(--dim);margin-bottom:4px}
+.pred-row{display:flex;align-items:center;gap:8px}
+.pred-icon{font-size:18px}
+.pred-price{font-family:'JetBrains Mono';font-size:16px;font-weight:700}
+.pred-dir{font-size:12px;padding:2px 8px;border-radius:8px;font-weight:700}
+.pred-dir.up{background:rgba(16,185,129,.15);color:var(--green)}
+.pred-dir.down{background:rgba(239,68,68,.15);color:var(--red)}
+.pred-dir.flat{background:rgba(100,116,139,.15);color:var(--dim)}
+.chart-container{margin:8px 16px;background:var(--card);border-radius:12px;border:1px solid var(--border);padding:8px;height:220px;position:relative}
+.chart-controls{display:flex;gap:4px;padding:4px 16px;flex-wrap:wrap}
+.chart-btn{padding:3px 10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--dim);font-size:10px;cursor:pointer}
+.chart-btn.active{background:var(--accent);color:#0a0e17;border-color:var(--accent)}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 16px}
+.info-card{background:var(--card);border-radius:10px;border:1px solid var(--border);padding:10px}
+.info-label{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.info-value{font-family:'JetBrains Mono';font-size:14px;font-weight:700;margin-top:2px}
+.alert-box{margin:8px 16px;padding:10px 14px;border-radius:10px;font-size:12px;display:none}
+.alert-box.warning{display:block;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--orange)}
+.alert-box.danger{display:block;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+.jpy-bar{margin:8px 16px;padding:10px 14px;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:10px;border:1px solid var(--border);font-size:11px}
+.jpy-bar .label{color:var(--dim)}
+.jpy-bar .rate{font-family:'JetBrains Mono';font-weight:700;color:var(--gold)}
+.decomp{display:flex;gap:12px;margin-top:6px}
+.decomp-item{font-size:10px}
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-top:8px}
+.tab{flex:1;padding:10px;text-align:center;font-size:11px;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{padding:12px 16px;min-height:200px}
+.model-table{width:100%;font-size:11px;border-collapse:collapse}
+.model-table th{text-align:left;color:var(--dim);padding:4px;font-size:9px;text-transform:uppercase}
+.model-table td{padding:4px;border-top:1px solid var(--border)}
+.entry-box{margin:8px 16px;padding:12px;background:var(--card);border-radius:10px;border:1px solid var(--border)}
+.entry-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0}
+.entry-label{color:var(--dim)}
+.entry-val{font-family:'JetBrains Mono';font-weight:700}
+.score-gauge{text-align:center;padding:16px}
+.score-num{font-family:'JetBrains Mono';font-size:48px;font-weight:800}
+.score-label{font-size:12px;color:var(--dim)}
+.rec-badge{display:inline-block;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;margin-top:8px}
+.rec-buy{background:rgba(16,185,129,.2);color:var(--green);border:1px solid var(--green)}
+.rec-sell{background:rgba(239,68,68,.2);color:var(--red);border:1px solid var(--red)}
+.rec-hold{background:rgba(100,116,139,.2);color:var(--dim);border:1px solid var(--dim)}
+.footer{text-align:center;padding:16px;font-size:9px;color:var(--dim);border-top:1px solid var(--border);margin-top:16px}
+.loading{text-align:center;padding:40px;color:var(--dim)}
+.spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stars{display:inline}
+.pred-history{margin:8px 16px;padding:8px 12px;background:var(--card);border-radius:10px;border:1px solid var(--border);font-size:10px;color:var(--dim)}
+.pred-history b{color:var(--text)}
 </style>
 </head>
 <body>
-<div class="container">
-
-  <!-- Header -->
-  <div class="header">
-    <div>
-      <h1>&#x1F52E; <span>Crypto Oracle</span> AI</h1>
-      <div style="font-size:10px;color:var(--dim)">ML&#20104;&#28204; v10 &#8212; 9&#12514;&#12487;&#12523;&#12450;&#12531;&#12469;&#12531;&#12502;&#12523;</div>
-    </div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <div class="curr-toggle">
-        <button class="curr-btn active" data-curr="jpy">&yen;JPY</button>
-        <button class="curr-btn" data-curr="usd">$USD</button>
-      </div>
-      <span class="badge live" id="liveBadge">&#x1F4E1; LIVE</span>
-    </div>
+<div class="header">
+  <div style="display:flex;align-items:baseline"><span class="logo">CRYPTO ORACLE</span><span class="ver">ML予測 v2</span></div>
+  <div class="controls">
+    <button class="btn-cur active" id="btnJpy" onclick="setCurrency('jpy')">&#165;JPY</button>
+    <button class="btn-cur" id="btnUsd" onclick="setCurrency('usd')">$USD</button>
+    <span class="live">LIVE</span>
   </div>
-
-  <!-- Selector -->
-  <div class="selector">
-    <select id="coinSelect"></select>
-    <button class="refresh-btn" onclick="refresh()">&#x21BB; &#26356;&#26032;</button>
-  </div>
-
-  <!-- Status -->
-  <div class="status-bar">
-    <span id="statusText">&#35501;&#12415;&#36796;&#12415;&#20013;...</span>
-    <span class="countdown" id="countdown">120s</span>
-  </div>
-
-  <!-- Loading -->
-  <div class="loading" id="loading">
-    <div class="spinner"></div>&#12487;&#12540;&#12479;&#21462;&#24471;&#20013;...
-  </div>
-
-  <!-- Main content -->
-  <div id="mainContent" class="hidden">
-
-    <!-- Recommendation -->
-    <div class="rec-panel" id="recPanel">
-      <div class="rec-header">
-        <span class="rec-icon" id="recIcon"></span>
-        <div>
-          <div class="rec-action" id="recAction"></div>
-          <div class="rec-stars" id="recStars"></div>
-        </div>
-      </div>
-      <div class="rec-grid">
-        <div class="rec-cell">
-          <div class="label">&#29694;&#22312;&#20385;&#26684;</div>
-          <div class="value" id="curPrice"></div>
-        </div>
-        <div class="rec-cell">
-          <div class="label">&#31934;&#24230;(MAPE)</div>
-          <div class="value" id="mapeVal"></div>
-        </div>
-        <div class="rec-cell">
-          <div class="label">&#26041;&#21521;&#31934;&#24230;</div>
-          <div class="value" id="dirVal"></div>
-        </div>
-        <div class="rec-cell">
-          <div class="label">&#20449;&#38972;&#24230;</div>
-          <div class="value" id="relVal"></div>
-        </div>
-      </div>
-
-      <!-- Day 1 highlight -->
-      <div class="day1-box">
-        <div class="title">&#9889; 1&#26085;&#20808;&#20104;&#28204;&#65288;&#26368;&#39640;&#31934;&#24230;&#65289;</div>
-        <div class="pred" id="day1Price"></div>
-        <div class="change" id="day1Change"></div>
-      </div>
-
-      <!-- 7-day scenario -->
-      <div style="font-size:11px;color:var(--dim);margin-bottom:6px">7&#26085;&#12471;&#12490;&#12522;&#12458;&#20998;&#26512;</div>
-      <div class="scenario">
-        <div class="scenario-item">
-          <div class="label">&#x1F4C8; &#19978;&#26119;</div>
-          <div class="val" id="scUp" style="color:var(--green)"></div>
-        </div>
-        <div class="scenario-item">
-          <div class="label">&#x1F4CA; &#22522;&#26412;</div>
-          <div class="val" id="scBase" style="color:var(--blue)"></div>
-        </div>
-        <div class="scenario-item">
-          <div class="label">&#x1F4C9; &#19979;&#33853;</div>
-          <div class="val" id="scDown" style="color:var(--red)"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Chart -->
-    <div class="chart-wrap">
-      <canvas id="mainChart"></canvas>
-    </div>
-
-    <!-- Tabs -->
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="judge">&#21028;&#23450;</button>
-      <button class="tab-btn" data-tab="models">9&#12514;&#12487;&#12523;</button>
-      <button class="tab-btn" data-tab="optimize">&#26368;&#36969;&#21270;</button>
-      <button class="tab-btn" data-tab="verify">&#26908;&#35388;</button>
-    </div>
-
-    <!-- Tab: Judge -->
-    <div class="tab-content active" id="tab-judge">
-      <div class="tab-panel">
-        <div class="gauge-wrap">
-          <svg class="gauge-svg" viewBox="0 0 200 120">
-            <path d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="#1e3050" stroke-width="12" stroke-linecap="round"/>
-            <path id="gaugeArc" d="M20,100 A80,80 0 0,1 180,100" fill="none" stroke="var(--green)" stroke-width="12" stroke-linecap="round" stroke-dasharray="0 999"/>
-            <text x="100" y="85" text-anchor="middle" class="gauge-label" fill="var(--text)" font-size="28" font-weight="700" font-family="JetBrains Mono" id="gaugeText">--</text>
-            <text x="100" y="105" text-anchor="middle" fill="#7a8a9a" font-size="12" font-family="Noto Sans JP">&#32207;&#21512;&#12473;&#12467;&#12450;</text>
-          </svg>
-        </div>
-        <div id="judgeDetails"></div>
-      </div>
-    </div>
-
-    <!-- Tab: Models -->
-    <div class="tab-content" id="tab-models">
-      <div class="tab-panel">
-        <table class="model-table">
-          <thead>
-            <tr><th>#</th><th>&#12514;&#12487;&#12523;</th><th>MAPE</th><th>&#26041;&#21521;</th><th>N</th></tr>
-          </thead>
-          <tbody id="modelBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Tab: Optimize -->
-    <div class="tab-content" id="tab-optimize">
-      <div class="tab-panel">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">&#20104;&#28204;&#12497;&#12452;&#12503;&#12521;&#12452;&#12531;</div>
-        <div id="optimizeInfo"></div>
-      </div>
-    </div>
-
-    <!-- Tab: Verify -->
-    <div class="tab-content" id="tab-verify">
-      <div class="tab-panel">
-        <div style="font-size:13px;font-weight:600;margin-bottom:8px">&#12496;&#12483;&#12463;&#12486;&#12473;&#12488;&#32080;&#26524;</div>
-        <div id="verifyInfo"></div>
-      </div>
-    </div>
-
-    <!-- Disclaimer -->
-    <div class="disclaimer">
-      &#9888;&#65039; &#25237;&#36039;&#21161;&#35328;&#12391;&#12399;&#12354;&#12426;&#12414;&#12379;&#12435;&#12290;&#20840;&#12390;&#12398;&#20104;&#28204;&#12399;ML/&#32113;&#35336;&#12514;&#12487;&#12523;&#12395;&#12424;&#12427;&#12418;&#12398;&#12391;&#12377;&#12290;<br>
-      &#25237;&#36039;&#12399;&#33258;&#24049;&#36012;&#20219;&#12391;&#34892;&#12387;&#12390;&#12367;&#12384;&#12373;&#12356;&#12290;CoinGecko API (&#28961;&#26009;&#29256;) &#20351;&#29992;&#12290;
-    </div>
-  </div>
-
 </div>
 
-<div class="error-toast" id="errorToast"></div>
+<div class="coins" id="coinBar"></div>
+<div class="status"><span id="statusText">読み込み中...</span><span id="timerText"></span></div>
+
+<div class="price-section" id="priceSection">
+  <span class="price-main" id="priceMain">---</span>
+  <span class="price-change" id="priceChange"></span>
+</div>
+
+<div class="alert-box" id="alertBox"></div>
+
+<div class="prediction-bar" id="predBar">
+  <div class="pred-label">v2モデル予測（1日先）</div>
+  <div class="pred-row">
+    <span class="pred-icon" id="predIcon">&#128302;</span>
+    <span class="pred-price" id="predPrice">---</span>
+    <span class="pred-dir" id="predDir">---</span>
+  </div>
+</div>
+
+<div class="jpy-bar" id="jpyBar">
+  <div><span class="label">USD/JPY </span><span class="rate" id="jpyRate">---</span>
+  <span class="label" style="margin-left:12px">要因分解:</span></div>
+  <div class="decomp">
+    <span class="decomp-item">暗号資産: <span id="decompCrypto">---</span></span>
+    <span class="decomp-item">為替: <span id="decompFx">---</span></span>
+  </div>
+</div>
+
+<div class="chart-container"><canvas id="mainChart"></canvas></div>
+<div class="chart-controls" id="chartControls">
+  <button class="chart-btn active" data-group="type" onclick="setChartType('line',this)">ライン</button>
+  <button class="chart-btn" data-group="type" onclick="setChartType('candle',this)">ローソク</button>
+  <button class="chart-btn" data-group="period" onclick="setDays(7,this)">1週</button>
+  <button class="chart-btn" data-group="period" onclick="setDays(30,this)">1月</button>
+  <button class="chart-btn active" data-group="period" onclick="setDays(90,this)">3月</button>
+</div>
+
+<div class="info-grid">
+  <div class="info-card"><div class="info-label">方向精度</div><div class="info-value" id="infoDirAcc">---</div></div>
+  <div class="info-card"><div class="info-label">信頼度</div><div class="info-value" id="infoReliability">---</div></div>
+  <div class="info-card"><div class="info-label">ボラティリティ</div><div class="info-value" id="infoVol">---</div></div>
+  <div class="info-card"><div class="info-label">MAPE</div><div class="info-value" id="infoMape">---</div></div>
+</div>
+
+<div class="entry-box" id="entryBox">
+  <div style="font-size:10px;color:var(--dim);margin-bottom:6px">エントリー提案</div>
+  <div class="entry-row"><span class="entry-label">買いエントリー</span><span class="entry-val" id="entryBuy">---</span></div>
+  <div class="entry-row"><span class="entry-label">利確ターゲット</span><span class="entry-val" id="entryTarget" style="color:var(--green)">---</span></div>
+  <div class="entry-row"><span class="entry-label">損切りライン</span><span class="entry-val" id="entryStop" style="color:var(--red)">---</span></div>
+  <div class="entry-row"><span class="entry-label">R/R比</span><span class="entry-val" id="entryRR">---</span></div>
+</div>
+
+<div class="pred-history" id="predHistory" style="display:none">
+  予測検証: <b id="predAccText">---</b>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="setTab(0,this)">判定</div>
+  <div class="tab" onclick="setTab(1,this)">モデル詳細</div>
+  <div class="tab" onclick="setTab(2,this)">バックテスト</div>
+</div>
+
+<div class="tab-content" id="tabContent">
+  <div class="score-gauge">
+    <div class="score-num" id="scoreNum">--</div>
+    <div class="score-label">総合スコア</div>
+    <div class="rec-badge rec-hold" id="recBadge">---</div>
+  </div>
+</div>
+
+<div class="footer">
+投資助言ではありません。全ての予測はv2統計モデルによるものです。<br>
+投資は自己責任で行ってください。CoinGecko API使用。
+</div>
 
 <script>
-// ============================================================
-// Coins config
-// ============================================================
-const COINS = [
-  {id:"bitcoin",sym:"BTC",name:"Bitcoin"},
-  {id:"ethereum",sym:"ETH",name:"Ethereum"},
-  {id:"ripple",sym:"XRP",name:"XRP"},
-  {id:"stellar",sym:"XLM",name:"Stellar"},
-  {id:"dogecoin",sym:"DOGE",name:"Dogecoin"},
-  {id:"shiba-inu",sym:"SHIB",name:"Shiba Inu"},
-  {id:"solana",sym:"SOL",name:"Solana"},
-  {id:"cardano",sym:"ADA",name:"Cardano"},
-  {id:"avalanche-2",sym:"AVAX",name:"Avalanche"},
-  {id:"polkadot",sym:"DOT",name:"Polkadot"},
-  {id:"chainlink",sym:"LINK",name:"Chainlink"},
-  {id:"tron",sym:"TRX",name:"TRON"},
-  {id:"sui",sym:"SUI",name:"Sui"},
+// ═══ CONFIG ═══
+var COINS=[
+  {id:'bitcoin',sym:'BTC',name:'Bitcoin',profile:'A'},
+  {id:'ethereum',sym:'ETH',name:'Ethereum',profile:'A'},
+  {id:'ripple',sym:'XRP',name:'XRP',profile:'B'},
+  {id:'stellar',sym:'XLM',name:'Stellar',profile:'C'},
+  {id:'dogecoin',sym:'DOGE',name:'Dogecoin',profile:'D'},
+  {id:'shiba-inu',sym:'SHIB',name:'Shiba Inu',profile:'E'}
 ];
+var API='https://api.coingecko.com/api/v3';
+var currency='jpy',currentCoin=COINS[0],chartType='line',chartDays=90;
+var coinData={},jpyRate=null,prevJpyRate=null,chart=null,refreshTimer=null;
 
-const BASE_URL = 'https://api.coingecko.com/api/v3';
-
-let currentCoin = COINS[0].id;
-let currency = 'jpy';
-let jpyRate = 150;
-let countdownVal = 120;
-let mainChart = null;
-let currentData = null;
-let fetchInProgress = false;
-
-// ============================================================
-// CoinGecko data fetcher (client-side)
-// ============================================================
-const ohlcvCache = {};
-const CACHE_TTL = 120000; // 2 min
-
-async function apiGet(url) {
-  const resp = await fetch(url);
-  if (resp.status === 429) throw new Error('API rate limit');
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  return resp.json();
-}
-
-async function fetchOHLCV(coinId) {
-  const now = Date.now();
-  if (ohlcvCache[coinId] && now - ohlcvCache[coinId].ts < CACHE_TTL) {
-    return ohlcvCache[coinId].data;
+// ═══ v2 PREDICTION MODELS ═══
+function adaptive(p){
+  if(p.length<6)return p[p.length-1];
+  var c=0,r=0;
+  for(var i=p.length-5;i<p.length;i++){
+    var pt=p[i-1]-p[i-2],ac=p[i]-p[i-1];
+    if((pt>0)===(ac>0))c++;else r++;
   }
-
-  const market = await apiGet(
-    `${BASE_URL}/coins/${coinId}/market_chart?vs_currency=usd&days=180`
-  );
-  if (!market || !market.prices) return null;
-
-  const daily = {};
-  for (const [ts, price] of market.prices) {
-    const day = new Date(ts).toISOString().slice(0, 10);
-    if (!daily[day]) {
-      daily[day] = {open: price, high: price, low: price, close: price, volume: 0};
-    } else {
-      daily[day].close = price;
-      daily[day].high = Math.max(daily[day].high, price);
-      daily[day].low = Math.min(daily[day].low, price);
-    }
-  }
-  if (market.total_volumes) {
-    for (const [ts, vol] of market.total_volumes) {
-      const day = new Date(ts).toISOString().slice(0, 10);
-      if (daily[day]) daily[day].volume += vol;
-    }
-  }
-
-  // Overlay OHLC for recent 30 days
-  try {
-    const ohlc = await apiGet(
-      `${BASE_URL}/coins/${coinId}/ohlc?vs_currency=usd&days=30`
-    );
-    if (ohlc && Array.isArray(ohlc)) {
-      const ohlcDaily = {};
-      for (const row of ohlc) {
-        const [ts, o, h, l, c] = row;
-        const day = new Date(ts).toISOString().slice(0, 10);
-        if (!ohlcDaily[day]) {
-          ohlcDaily[day] = {open: o, high: h, low: l, close: c};
-        } else {
-          ohlcDaily[day].close = c;
-          ohlcDaily[day].high = Math.max(ohlcDaily[day].high, h);
-          ohlcDaily[day].low = Math.min(ohlcDaily[day].low, l);
-        }
-      }
-      for (const [day, d] of Object.entries(ohlcDaily)) {
-        if (daily[day]) {
-          daily[day].open = d.open;
-          daily[day].high = d.high;
-          daily[day].low = d.low;
-          daily[day].close = d.close;
-        }
-      }
-    }
-  } catch (e) { /* OHLC overlay optional */ }
-
-  const sortedDays = Object.keys(daily).sort();
-  if (!sortedDays.length) return null;
-
-  const data = {
-    prices: sortedDays.map(d => daily[d].close),
-    volumes: sortedDays.map(d => daily[d].volume),
-    highs: sortedDays.map(d => daily[d].high),
-    lows: sortedDays.map(d => daily[d].low),
-    opens: sortedDays.map(d => daily[d].open),
-    dates: sortedDays,
-  };
-
-  ohlcvCache[coinId] = {data, ts: now};
-  return data;
+  var t=p[p.length-1]-p[p.length-2];
+  return c>r?p[p.length-1]+t*0.2:p[p.length-1]-t*0.15;
+}
+function meanRev5(p){
+  if(p.length<5)return p[p.length-1];
+  var sma=p.slice(-5).reduce(function(a,b){return a+b},0)/5;
+  return p[p.length-1]+(sma-p[p.length-1])*0.3;
+}
+function streak(p){
+  if(p.length<4)return p[p.length-1];
+  var d1=p[p.length-1]-p[p.length-2],d2=p[p.length-2]-p[p.length-3],d3=p[p.length-3]-p[p.length-4];
+  var same=(d1>0)===(d2>0),triple=same&&(d2>0)===(d3>0);
+  if(triple)return p[p.length-1]+d1*0.4;
+  if(same)return p[p.length-1]+d1*0.25;
+  return p[p.length-1]-d1*0.15;
+}
+function bollinger(p){
+  if(p.length<20)return p[p.length-1];
+  var sma=p.slice(-20).reduce(function(a,b){return a+b},0)/20;
+  var v=p.slice(-20).reduce(function(a,b){return a+(b-sma)*(b-sma)},0)/20,std=Math.sqrt(v);
+  var u=sma+2*std,lo=sma-2*std,pos=(p[p.length-1]-lo)/(u-lo||1);
+  if(pos>0.8)return p[p.length-1]-std*0.15;
+  if(pos<0.2)return p[p.length-1]+std*0.15;
+  return p[p.length-1]+(sma-p[p.length-1])*0.1;
+}
+function rsi2(p){
+  if(p.length<4)return p[p.length-1];
+  var g=0,l=0;
+  for(var i=p.length-2;i<p.length;i++){var d=p[i]-p[i-1];if(d>0)g+=d;else l-=d;}
+  var rsi=l===0?100:100-100/(1+g/l);
+  if(rsi>80)return p[p.length-1]-Math.abs(p[p.length-1]-p[p.length-2])*0.2;
+  if(rsi<20)return p[p.length-1]+Math.abs(p[p.length-1]-p[p.length-2])*0.2;
+  return p[p.length-1];
 }
 
-async function fetchJpyRate() {
-  try {
-    const data = await apiGet(
-      `${BASE_URL}/simple/price?ids=usd-coin&vs_currencies=jpy`
-    );
-    if (data && data['usd-coin']) {
-      jpyRate = data['usd-coin'].jpy || 150;
-    }
-  } catch (e) { /* fallback 150 */ }
+var PREDICT={
+  A:function(p){return(adaptive(p)+meanRev5(p))/2},
+  B:function(p){return(adaptive(p)+rsi2(p))/2},
+  C:function(p){return(streak(p)+bollinger(p))/2},
+  D:function(p){return(streak(p)+adaptive(p))/2},
+  E:function(p){return rsi2(p)}
+};
+var MODEL_NAMES={A:'Adaptive+MeanRev5',B:'Adaptive+RSI2',C:'Streak+Bollinger',D:'Streak+Adaptive',E:'RSI2'};
+var DIR_ACC={A:{BTC:75,ETH:80},B:{XRP:65},C:{XLM:70},D:{DOGE:70},E:{SHIB:75}};
+
+// ═══ VOLATILITY & ALERTS ═══
+function volRegime(p){
+  if(p.length<15)return{regime:'unknown',val:0};
+  var returns=[];
+  for(var i=p.length-14;i<p.length;i++)returns.push(Math.abs(p[i]-p[i-1])/p[i-1]);
+  var vol=returns.reduce(function(a,b){return a+b},0)/returns.length;
+  if(vol>0.05)return{regime:'high',val:vol};
+  if(vol<0.015)return{regime:'low',val:vol};
+  return{regime:'mid',val:vol};
 }
-
-// ============================================================
-// 9-Model Prediction Engine (ported from Python)
-// ============================================================
-const MONTH_BIAS = {1:-3,2:5,3:-1.3,4:10,5:2,6:3,7:6,8:-1,9:-3,10:15,11:12,12:5};
-const MODEL_NAMES = [
-  "S/R Level","ATR","EMA Cross","OBV Trend","VWAP Revert",
-  "Candlestick","RSI+Vol","Vol Regime","Seasonal"
-];
-
-function srLevel(prices, volumes, highs, lows) {
-  if (highs.length < 5 || lows.length < 5 || prices.length < 3) return null;
-  const recentHigh = Math.max(...highs.slice(-5));
-  const recentLow = Math.min(...lows.slice(-5));
-  const last = prices[prices.length - 1];
-  const range = recentHigh - recentLow;
-  if (range <= 0) return null;
-  const position = (last - recentLow) / range;
-  if (position > 0.8) return last - range * 0.15;
-  if (position < 0.2) return last + range * 0.15;
-  const trend = (prices[prices.length - 1] - prices[prices.length - 3]) / 3;
-  return last + trend;
-}
-
-function atrModel(prices, volumes, highs, lows) {
-  if (highs.length < 5 || prices.length < 3) return null;
-  let atr = 0;
-  for (let i = highs.length - 5; i < highs.length; i++) atr += highs[i] - lows[i];
-  atr /= 5;
-  const trend = prices[prices.length - 1] > prices[prices.length - 3] ? 1 : -1;
-  return prices[prices.length - 1] + trend * atr * 0.2;
-}
-
-function emaModel(prices) {
-  if (prices.length < 5) return null;
-  const k = 2 / 6;
-  let ema = prices[0];
-  for (let i = 1; i < prices.length; i++) ema = prices[i] * k + ema * (1 - k);
-  return prices[prices.length - 1] + (ema - prices[prices.length - 1]) * 0.3;
-}
-
-function obvModel(prices, volumes) {
-  if (prices.length < 8 || !volumes || volumes.length < prices.length) return null;
-  let obv = 0;
-  const obvArr = [];
-  for (let i = 1; i < prices.length; i++) {
-    if (prices[i] > prices[i - 1]) obv += volumes[i];
-    else if (prices[i] < prices[i - 1]) obv -= volumes[i];
-    obvArr.push(obv);
-  }
-  if (obvArr.length < 5) return null;
-  const recent = obvArr.slice(-5);
-  const obvUp = recent[recent.length - 1] > recent[0];
-  const n = Math.min(4, prices.length - 1);
-  let avgChange = 0;
-  for (let i = 1; i <= n; i++) avgChange += Math.abs(prices[prices.length - i] - prices[prices.length - i - 1]);
-  avgChange /= n;
-  return obvUp ? prices[prices.length - 1] + avgChange * 0.3 : prices[prices.length - 1] - avgChange * 0.3;
-}
-
-function vwapModel(prices, volumes) {
-  if (prices.length < 8 || !volumes || volumes.length < prices.length) return null;
-  const window = Math.min(15, prices.length);
-  let sumPV = 0, sumV = 0;
-  for (let i = 0; i < window; i++) {
-    const idx = prices.length - window + i;
-    sumPV += prices[idx] * volumes[idx];
-    sumV += volumes[idx];
-  }
-  const vwap = sumV > 0 ? sumPV / sumV : prices[prices.length - 1];
-  return prices[prices.length - 1] + (vwap - prices[prices.length - 1]) * 0.2;
-}
-
-function candlestickModel(prices, volumes, highs, lows, opens) {
-  if (prices.length < 3 || !highs || !lows || !opens) return null;
-  if (highs.length < prices.length || lows.length < prices.length || opens.length < prices.length) return null;
-  const i = prices.length - 1;
-  const body = Math.abs(prices[i] - opens[i]);
-  const range = highs[i] - lows[i];
-  if (range <= 0) return null;
-  const upperWick = highs[i] - Math.max(opens[i], prices[i]);
-  const lowerWick = Math.min(opens[i], prices[i]) - lows[i];
-  if (lowerWick > body * 2 && upperWick < body * 0.5) return prices[i] + range * 0.25;
-  if (upperWick > body * 2 && lowerWick < body * 0.5) return prices[i] - range * 0.25;
-  return prices[i];
-}
-
-function rsiVolumeModel(prices, volumes) {
-  if (prices.length < 15 || !volumes || volumes.length < prices.length) return null;
-  let gains = 0, losses = 0;
-  for (let j = prices.length - 14; j < prices.length; j++) {
-    const change = prices[j] - prices[j - 1];
-    const start = Math.max(0, j - 14);
-    let avgVol = 0;
-    for (let v = start; v < j; v++) avgVol += volumes[v];
-    avgVol = avgVol > 0 ? avgVol / 14 : 1;
-    const weight = avgVol > 0 ? volumes[j] / avgVol : 1;
-    if (change > 0) gains += change * weight;
-    else losses -= change * weight;
-  }
-  const rsi = losses === 0 ? 100 : 100 - 100 / (1 + (gains / 14) / (losses / 14));
-  return prices[prices.length - 1] * (1 + (50 - rsi) / 350);
-}
-
-function volRegimeModel(prices) {
-  if (prices.length < 15) return null;
-  const changes = [];
-  for (let i = prices.length - 10; i < prices.length; i++) {
-    changes.push((prices[i] - prices[i - 1]) / prices[i - 1]);
-  }
-  let sumSq = 0;
-  for (const c of changes) sumSq += c * c;
-  const vol = Math.sqrt(sumSq / changes.length);
-  const mean = changes.reduce((a, b) => a + b, 0) / changes.length;
-  const last = prices[prices.length - 1];
-  if (vol > 0.03) {
-    const sma5 = prices.slice(-5).reduce((a, b) => a + b, 0) / 5;
-    return last + (sma5 - last) * 0.3;
-  }
-  return last + last * mean;
-}
-
-function seasonalModel(prices) {
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const bias = (MONTH_BIAS[month] || 0) / 100 / 30;
-  const halvingDate = new Date(2024, 3, 20);
-  const monthsSince = (now - halvingDate) / (30.44 * 24 * 3600 * 1000);
-  let halvingBias;
-  if (monthsSince >= 0 && monthsSince <= 12) halvingBias = 0.02;
-  else if (monthsSince > 12 && monthsSince <= 18) halvingBias = 0.01;
-  else halvingBias = -0.01;
-  return prices[prices.length - 1] * (1 + bias * 0.3 + halvingBias * 0.3);
-}
-
-const ALL_MODELS = [srLevel, atrModel, emaModel, obvModel, vwapModel,
-                    candlestickModel, rsiVolumeModel, volRegimeModel, seasonalModel];
-
-function callModel(idx, prices, volumes, highs, lows, opens) {
-  const fn = ALL_MODELS[idx];
-  if (idx === 0 || idx === 1) return fn(prices, volumes, highs, lows);
-  if (idx === 2) return fn(prices);
-  if (idx === 3 || idx === 4 || idx === 6) return fn(prices, volumes);
-  if (idx === 5) return fn(prices, volumes, highs, lows, opens);
-  if (idx === 7 || idx === 8) return fn(prices);
+function detectAnomaly(p){
+  if(p.length<10)return null;
+  var avgMove=0;
+  for(var i=p.length-10;i<p.length-1;i++)avgMove+=Math.abs(p[i]-p[i-1])/p[i-1];
+  avgMove/=9;
+  var lastMove=Math.abs(p[p.length-1]-p[p.length-2])/p[p.length-2];
+  if(lastMove>avgMove*3)return'\u26A1 急変動検知（通常の'+Math.round(lastMove/avgMove)+'倍）';
   return null;
 }
 
-function ensemblePredict(prices, volumes, highs, lows, opens) {
-  const preds = [];
-  for (let i = 0; i < ALL_MODELS.length; i++) {
-    const p = callModel(i, prices, volumes, highs, lows, opens);
-    if (p !== null && p > 0) preds.push(p);
+// ═══ BACKTEST ═══
+function backtest(p,profile){
+  var fn=PREDICT[profile];
+  var n=p.length,testN=Math.min(20,Math.floor(n*0.4)),start=n-testN;
+  var dirs=0,nE=[],mE=[];
+  for(var i=start;i<n;i++){
+    var tp=p.slice(0,i),actual=p[i],prev=p[i-1];
+    var pred=fn(tp);
+    nE.push(Math.abs(prev-actual)/actual*100);
+    mE.push(Math.abs(pred-actual)/actual*100);
+    if((pred>prev)===(actual>prev))dirs++;
   }
-  if (!preds.length) return prices[prices.length - 1];
-  return preds.reduce((a, b) => a + b, 0) / preds.length;
+  var avg=function(a){return a.reduce(function(x,y){return x+y},0)/a.length};
+  return{dir:dirs/testN*100,mape:avg(mE),naive:avg(nE),n:testN};
 }
 
-function runBacktest(prices, volumes, highs, lows, opens) {
-  const n = prices.length;
-  const testSize = Math.max(5, Math.floor(n * 0.3));
-  const start = n - testSize;
-  if (start < 10) return {mape: 99, direction: 50, n: 0};
+// ═══ ENTRY/EXIT ═══
+function suggestEntry(last,pred,p){
+  if(p.length<14)return null;
+  var atr=0;
+  for(var i=p.length-14;i<p.length;i++)atr+=Math.abs(p[i]-p[i-1]);
+  atr/=14;
+  var up=pred>last;
+  var entry=up?last-atr*0.3:last+atr*0.3;
+  var target=pred;
+  var stop=up?last-atr*1.5:last+atr*1.5;
+  var risk=Math.abs(entry-stop),reward=Math.abs(target-entry);
+  var rr=risk>0?reward/risk:0;
+  return{entry:entry,target:target,stop:stop,rr:rr,up:up};
+}
 
-  const errors = [];
-  let dirCorrect = 0, total = 0;
+// ═══ PREDICTION HISTORY (localStorage) ═══
+function savePrediction(coinId,currentPrice,predictedPrice,direction){
+  try{
+    var key='crypto_predictions';
+    var history=JSON.parse(localStorage.getItem(key)||'[]');
+    history.push({
+      coin:coinId,
+      time:new Date().toISOString(),
+      current:currentPrice,
+      predicted:predictedPrice,
+      direction:direction,
+      actual:null
+    });
+    // 6銘柄 x 90日分を上限
+    if(history.length>540)history.splice(0,history.length-540);
+    localStorage.setItem(key,JSON.stringify(history));
+  }catch(e){console.warn('savePrediction error:',e);}
+}
 
-  for (let i = start; i < n; i++) {
-    const pred = ensemblePredict(
-      prices.slice(0, i), volumes.slice(0, i),
-      highs.slice(0, i), lows.slice(0, i), opens.slice(0, i)
-    );
-    const actual = prices[i];
-    const prev = prices[i - 1];
-    errors.push(Math.abs(pred - actual) / actual * 100);
-    if ((pred > prev) === (actual > prev)) dirCorrect++;
-    total++;
-  }
+function verifyPredictions(currentPrices){
+  try{
+    var history=JSON.parse(localStorage.getItem('crypto_predictions')||'[]');
+    var now=Date.now();
+    history.forEach(function(p){
+      if(!p.actual&&now-new Date(p.time).getTime()>20*3600000){
+        var price=currentPrices[p.coin];
+        if(price){
+          p.actual=price;
+          p.directionCorrect=(p.direction==='up')===(price>p.current);
+        }
+      }
+    });
+    localStorage.setItem('crypto_predictions',JSON.stringify(history));
+    var verified=history.filter(function(p){return p.actual!==null});
+    var correct=verified.filter(function(p){return p.directionCorrect}).length;
+    return{
+      total:verified.length,
+      correct:correct,
+      accuracy:verified.length>0?(correct/verified.length*100).toFixed(1):'---'
+    };
+  }catch(e){return{total:0,correct:0,accuracy:'---'};}
+}
 
-  return {
-    mape: errors.length ? +(errors.reduce((a, b) => a + b, 0) / errors.length).toFixed(2) : 99,
-    direction: total > 0 ? +((dirCorrect / total) * 100).toFixed(1) : 50,
-    n: total,
+// ═══ CACHE & FETCH ═══
+function cacheKey(url){
+  // 短いキーを生成
+  var hash=0;
+  for(var i=0;i<url.length;i++){hash=((hash<<5)-hash)+url.charCodeAt(i);hash|=0;}
+  return'cache_'+Math.abs(hash);
+}
+
+function fetchWithFallback(url){
+  return fetch(url,{signal:AbortSignal.timeout(15000)})
+    .then(function(res){
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      return res.json();
+    })
+    .then(function(data){
+      try{localStorage.setItem(cacheKey(url),JSON.stringify({data:data,time:Date.now()}));}catch(e){}
+      return data;
+    })
+    .catch(function(e){
+      console.warn('API error:',url,e.message);
+      try{
+        var cached=localStorage.getItem(cacheKey(url));
+        if(cached){
+          var obj=JSON.parse(cached);
+          // キャッシュ10分以内なら使用
+          if(Date.now()-obj.time<600000)return obj.data;
+        }
+      }catch(ex){}
+      return null;
+    });
+}
+
+// ═══ DATA FETCH ═══
+function parseDailyOHLCV(d){
+  var daily={};
+  d.prices.forEach(function(item){
+    var ts=item[0],price=item[1];
+    var day=new Date(ts).toISOString().slice(0,10);
+    if(!daily[day])daily[day]={o:price,h:price,l:price,c:price,v:0};
+    else{daily[day].c=price;daily[day].h=Math.max(daily[day].h,price);daily[day].l=Math.min(daily[day].l,price);}
+  });
+  if(d.total_volumes)d.total_volumes.forEach(function(item){
+    var ts=item[0],vol=item[1];
+    var day=new Date(ts).toISOString().slice(0,10);
+    if(daily[day])daily[day].v+=vol;
+  });
+  var days=Object.keys(daily).sort();
+  return{
+    dates:days,
+    prices:days.map(function(d){return daily[d].c}),
+    highs:days.map(function(d){return daily[d].h}),
+    lows:days.map(function(d){return daily[d].l}),
+    opens:days.map(function(d){return daily[d].o}),
+    volumes:days.map(function(d){return daily[d].v})
   };
 }
 
-function backtestIndividual(prices, volumes, highs, lows, opens) {
-  const n = prices.length;
-  const testSize = Math.max(5, Math.floor(n * 0.3));
-  const start = n - testSize;
-  if (start < 10) {
-    return MODEL_NAMES.map((name, i) => ({name, mape: 99, direction: 50, n: 0}));
-  }
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 
-  const results = [];
-  for (let mi = 0; mi < ALL_MODELS.length; mi++) {
-    const errors = [];
-    let dirCorrect = 0, total = 0;
-    for (let i = start; i < n; i++) {
-      const pred = callModel(mi,
-        prices.slice(0, i), volumes.slice(0, i),
-        highs.slice(0, i), lows.slice(0, i), opens.slice(0, i)
-      );
-      if (pred === null || pred <= 0) continue;
-      const actual = prices[i];
-      const prev = prices[i - 1];
-      errors.push(Math.abs(pred - actual) / actual * 100);
-      if ((pred > prev) === (actual > prev)) dirCorrect++;
-      total++;
+async function loadAllData(){
+  setStatus('USD/JPY取得中...');
+
+  // USD/JPYレート取得（全銘柄のUSD/JPYを一括で取る）
+  var rateData=await fetchWithFallback(API+'/simple/price?ids=bitcoin&vs_currencies=usd,jpy');
+  if(rateData&&rateData.bitcoin&&rateData.bitcoin.jpy&&rateData.bitcoin.usd){
+    prevJpyRate=jpyRate;
+    jpyRate=rateData.bitcoin.jpy/rateData.bitcoin.usd;
+  }
+  if(!jpyRate)jpyRate=158.6;
+
+  // 各銘柄データ取得（2秒間隔）
+  for(var i=0;i<COINS.length;i++){
+    var c=COINS[i];
+    setStatus(c.sym+' 取得中... ('+(i+1)+'/'+COINS.length+')');
+    var data=await fetchWithFallback(API+'/coins/'+c.id+'/market_chart?vs_currency=usd&days=180');
+    if(data&&data.prices){
+      coinData[c.id]=parseDailyOHLCV(data);
     }
-    results.push({
-      name: MODEL_NAMES[mi],
-      mape: errors.length ? +(errors.reduce((a, b) => a + b, 0) / errors.length).toFixed(2) : 99,
-      direction: total > 0 ? +((dirCorrect / total) * 100).toFixed(1) : 50,
-      n: total,
-    });
-  }
-  return results;
-}
-
-function forecast7day(prices, volumes, highs, lows, opens, btMape) {
-  const last = prices[prices.length - 1];
-  const changes = [];
-  const start = Math.max(1, prices.length - 20);
-  for (let i = start; i < prices.length; i++) {
-    changes.push((prices[i] - prices[i - 1]) / prices[i - 1]);
-  }
-  const vol = changes.length
-    ? Math.sqrt(changes.reduce((s, c) => s + c * c, 0) / changes.length)
-    : 0.025;
-
-  const forecasts = [{day: 0, price: +last.toFixed(6), upper: +last.toFixed(6), lower: +last.toFixed(6)}];
-  const simP = [...prices];
-  const simV = volumes ? [...volumes] : null;
-  const simH = highs ? [...highs] : null;
-  const simL = lows ? [...lows] : null;
-  const simO = opens ? [...opens] : null;
-
-  for (let d = 1; d <= 7; d++) {
-    const pred = ensemblePredict(simP, simV, simH, simL, simO);
-    const damp = 1 / (1 + d * 0.08);
-    const damped = last + (pred - last) * damp;
-
-    const marketUnc = last * vol * Math.sqrt(d) * 1.96;
-    const modelUnc = last * (btMape / 100) * d * 1.5;
-    const totalUnc = marketUnc + modelUnc;
-
-    forecasts.push({
-      day: d,
-      price: +damped.toFixed(6),
-      upper: +(damped + totalUnc).toFixed(6),
-      lower: +Math.max(damped - totalUnc, damped * 0.3).toFixed(6),
-    });
-
-    simP.push(pred);
-    if (simV) simV.push(simV[simV.length - 1]);
-    if (simH) simH.push(Math.max(pred, damped) * 1.01);
-    if (simL) simL.push(Math.min(pred, damped) * 0.99);
-    if (simO) simO.push(simP[simP.length - 2]);
-  }
-  return forecasts;
-}
-
-function getReliability(mape, dirAcc) {
-  if (dirAcc <= 35 || mape > 12) return {label:"\u4F4E",stars:"\u2605\u2606\u2606\u2606\u2606",color:"#ff4466"};
-  if (dirAcc <= 45 || mape > 8) return {label:"\u4E2D\u4F4E",stars:"\u2605\u2605\u2606\u2606\u2606",color:"#ff8855"};
-  if (dirAcc <= 55 || mape > 5) return {label:"\u4E2D",stars:"\u2605\u2605\u2605\u2606\u2606",color:"#ffd866"};
-  if (dirAcc <= 65 || mape > 3) return {label:"\u4E2D\u9AD8",stars:"\u2605\u2605\u2605\u2605\u2606",color:"#66ffcc"};
-  return {label:"\u9AD8",stars:"\u2605\u2605\u2605\u2605\u2605",color:"#00ffaa"};
-}
-
-function getRecommendation(score, fcChange) {
-  if (score >= 65 && fcChange > 0.5) return {action:"\u8CB7\u3044\u6642",color:"#00ffaa",icon:"\uD83D\uDFE2"};
-  if (score >= 55 && fcChange > 0) return {action:"\u3084\u3084\u8CB7\u3044",color:"#66ffcc",icon:"\uD83D\uDD35"};
-  if (score <= 35 && fcChange < -0.5) return {action:"\u3084\u3084\u58F2\u308A",color:"#ff8855",icon:"\uD83D\uDFE0"};
-  if (score <= 45 && fcChange < 0) return {action:"\u3084\u3084\u58F2\u308A",color:"#ff8855",icon:"\uD83D\uDFE0"};
-  return {action:"\u69D8\u5B50\u898B",color:"#ffd866",icon:"\uD83D\uDFE1"};
-}
-
-// ============================================================
-// Main data pipeline
-// ============================================================
-async function processData(coinId) {
-  const ohlcv = await fetchOHLCV(coinId);
-  if (!ohlcv) throw new Error('\u30C7\u30FC\u30BF\u53D6\u5F97\u5931\u6557');
-
-  const {prices, volumes, highs, lows, opens, dates} = ohlcv;
-  const bt = runBacktest(prices, volumes, highs, lows, opens);
-  const fc = forecast7day(prices, volumes, highs, lows, opens, bt.mape);
-  const rel = getReliability(bt.mape, bt.direction);
-
-  const last = prices[prices.length - 1];
-  const fcChange = +((fc[7].price - last) / last * 100).toFixed(2);
-  const day1Change = +((fc[1].price - last) / last * 100).toFixed(2);
-  const confidence = Math.max(0, Math.min(100, 100 - bt.mape * 10));
-  const score = +(confidence * 0.4 + bt.direction * 0.4 + (fcChange > 0 ? 60 : 40) * 0.2).toFixed(1);
-  const rec = getRecommendation(score, fcChange);
-  const individual = backtestIndividual(prices, volumes, highs, lows, opens);
-
-  return {prices, volumes, highs, lows, opens, dates, backtest: bt,
-          forecast: fc, reliability: rel, recommendation: rec,
-          score, fc_change: fcChange, day1_change: day1Change, individual};
-}
-
-// ============================================================
-// UI Logic
-// ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-  initCoinSelect();
-  initTabs();
-  initCurrToggle();
-  fetchJpyRate();
-  loadData(currentCoin);
-  setInterval(tick, 1000);
-});
-
-function initCoinSelect() {
-  const sel = document.getElementById('coinSelect');
-  COINS.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.id;
-    opt.textContent = `${c.sym} \u2014 ${c.name}`;
-    sel.appendChild(opt);
-  });
-  sel.addEventListener('change', e => { currentCoin = e.target.value; loadData(currentCoin); });
-}
-
-function initTabs() {
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-    });
-  });
-}
-
-function initCurrToggle() {
-  document.querySelectorAll('.curr-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.curr-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currency = btn.dataset.curr;
-      if (currentData) render(currentData);
-    });
-  });
-}
-
-function tick() {
-  countdownVal--;
-  if (countdownVal <= 0) { countdownVal = 120; loadData(currentCoin); }
-  document.getElementById('countdown').textContent = countdownVal + 's';
-}
-
-function refresh() { countdownVal = 120; loadData(currentCoin); }
-
-function showError(msg) {
-  const el = document.getElementById('errorToast');
-  el.textContent = msg;
-  el.style.display = 'block';
-  setTimeout(() => el.style.display = 'none', 4000);
-}
-
-// --- Format ---
-function fmtPrice(usd) {
-  if (currency === 'jpy') {
-    const jpy = usd * jpyRate;
-    if (jpy >= 1000000) return '\u00A5' + (jpy/1000000).toFixed(2) + 'M';
-    if (jpy >= 1000) return '\u00A5' + jpy.toLocaleString('ja-JP', {maximumFractionDigits: 0});
-    if (jpy >= 1) return '\u00A5' + jpy.toFixed(2);
-    return '\u00A5' + jpy.toFixed(4);
-  }
-  if (usd >= 1000) return '$' + usd.toLocaleString('en-US', {maximumFractionDigits: 0});
-  if (usd >= 1) return '$' + usd.toFixed(2);
-  if (usd >= 0.01) return '$' + usd.toFixed(4);
-  return '$' + usd.toFixed(6);
-}
-
-function fmtPct(v) { return (v >= 0 ? '+' : '') + v.toFixed(2) + '%'; }
-
-// --- Load Data ---
-async function loadData(coinId) {
-  if (fetchInProgress) return;
-  fetchInProgress = true;
-  document.getElementById('loading').classList.remove('hidden');
-  document.getElementById('mainContent').classList.add('hidden');
-  document.getElementById('statusText').textContent = `${coinId} \u30C7\u30FC\u30BF\u53D6\u5F97\u4E2D...`;
-
-  try {
-    const data = await processData(coinId);
-    currentData = data;
-    render(data);
-    document.getElementById('statusText').textContent =
-      `${COINS.find(c => c.id === coinId)?.sym || coinId} \u2014 ${new Date().toLocaleTimeString('ja-JP')} \u66F4\u65B0`;
-    document.getElementById('liveBadge').textContent = '\uD83D\uDCE1 LIVE';
-    document.getElementById('liveBadge').classList.add('live');
-  } catch (e) {
-    document.getElementById('statusText').textContent = '\u26A0\uFE0F \u53D6\u5F97\u5931\u6557: ' + e.message;
-    document.getElementById('liveBadge').textContent = '\uD83D\uDCC5 \u56FA\u5B9A';
-    document.getElementById('liveBadge').classList.remove('live');
-    showError(e.message);
-  } finally {
-    fetchInProgress = false;
-    document.getElementById('loading').classList.add('hidden');
-    document.getElementById('mainContent').classList.remove('hidden');
-  }
-}
-
-// --- Render ---
-function render(data) {
-  const last = data.prices[data.prices.length - 1];
-  const rec = data.recommendation;
-  const rel = data.reliability;
-  const bt = data.backtest;
-  const fc = data.forecast;
-
-  document.getElementById('recIcon').textContent = rec.icon;
-  document.getElementById('recAction').textContent = rec.action;
-  document.getElementById('recAction').style.color = rec.color;
-  document.getElementById('recStars').innerHTML =
-    `<span style="color:${rel.color}">${rel.stars}</span> \u4FE1\u983C\u5EA6: ${rel.label}`;
-  document.getElementById('curPrice').textContent = fmtPrice(last);
-  document.getElementById('mapeVal').textContent = bt.mape + '%';
-  document.getElementById('dirVal').textContent = bt.direction + '%';
-  document.getElementById('relVal').textContent = rel.label;
-  document.getElementById('relVal').style.color = rel.color;
-
-  const d1 = fc[1];
-  document.getElementById('day1Price').textContent = fmtPrice(d1.price);
-  const d1c = data.day1_change;
-  const d1el = document.getElementById('day1Change');
-  d1el.textContent = fmtPct(d1c);
-  d1el.style.color = d1c >= 0 ? 'var(--green)' : 'var(--red)';
-
-  const d7 = fc[7];
-  document.getElementById('scUp').textContent = fmtPrice(d7.upper);
-  document.getElementById('scBase').textContent = fmtPrice(d7.price);
-  document.getElementById('scDown').textContent = fmtPrice(d7.lower);
-
-  renderChart(data);
-  renderJudge(data);
-  renderModels(data);
-  renderOptimize(data);
-  renderVerify(data);
-}
-
-function renderChart(data) {
-  const ctx = document.getElementById('mainChart').getContext('2d');
-  if (mainChart) mainChart.destroy();
-
-  const prices = data.prices;
-  const dates = data.dates || prices.map((_, i) => i);
-  const fc = data.forecast;
-
-  const labels = [...dates];
-  for (let d = 1; d <= 7; d++) {
-    const dt = new Date();
-    dt.setDate(dt.getDate() + d);
-    labels.push(dt.toISOString().slice(5, 10));
+    if(i<COINS.length-1)await sleep(2000);
   }
 
-  const mult = currency === 'jpy' ? jpyRate : 1;
-  const actualData = prices.map(p => p * mult);
-  const fcData = new Array(prices.length - 1).fill(null);
-  fcData.push(prices[prices.length - 1] * mult);
-  for (let d = 1; d <= 7; d++) fcData.push(fc[d].price * mult);
-
-  const upperData = new Array(prices.length - 1).fill(null);
-  upperData.push(prices[prices.length - 1] * mult);
-  for (let d = 1; d <= 7; d++) upperData.push(fc[d].upper * mult);
-
-  const lowerData = new Array(prices.length - 1).fill(null);
-  lowerData.push(prices[prices.length - 1] * mult);
-  for (let d = 1; d <= 7; d++) lowerData.push(fc[d].lower * mult);
-
-  const trendUp = prices[prices.length - 1] >= prices[Math.max(0, prices.length - 8)];
-
-  mainChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: '\u5B9F\u7E3E', data: actualData.concat(new Array(7).fill(null)),
-          borderColor: trendUp ? '#00ffaa' : '#ff4466',
-          backgroundColor: trendUp ? 'rgba(0,255,170,0.05)' : 'rgba(255,68,102,0.05)',
-          borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3,
-        },
-        {
-          label: '\u4E88\u6E2C', data: fcData,
-          borderColor: '#3388ff', borderWidth: 2, borderDash: [6, 3],
-          pointRadius: 0, fill: false, tension: 0.3,
-        },
-        {
-          label: '95%CI\u4E0A\u9650', data: upperData,
-          borderColor: 'rgba(51,136,255,0.2)', borderWidth: 1,
-          pointRadius: 0, fill: false,
-        },
-        {
-          label: '95%CI\u4E0B\u9650', data: lowerData,
-          borderColor: 'rgba(51,136,255,0.2)', borderWidth: 1,
-          pointRadius: 0, fill: '-1', backgroundColor: 'rgba(51,136,255,0.08)',
-        },
-      ],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: {display: false},
-        tooltip: {
-          backgroundColor: '#111a2e', titleColor: '#e0e8f0', bodyColor: '#e0e8f0',
-          borderColor: '#1e3050', borderWidth: 1,
-          callbacks: {
-            label: (ctx) => {
-              if (ctx.raw === null) return '';
-              const sym = currency === 'jpy' ? '\u00A5' : '$';
-              return ctx.dataset.label + ': ' + sym + ctx.raw.toLocaleString(undefined, {maximumFractionDigits: 2});
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          display: true, grid: {color: 'rgba(30,48,80,0.3)'},
-          ticks: {color: '#4a5a6a', font: {size: 9}, maxTicksLimit: 8, maxRotation: 0},
-        },
-        y: {
-          display: true, grid: {color: 'rgba(30,48,80,0.3)'},
-          ticks: {
-            color: '#4a5a6a', font: {size: 9, family: 'JetBrains Mono'},
-            callback: v => {
-              const sym = currency === 'jpy' ? '\u00A5' : '$';
-              if (v >= 1000000) return sym + (v / 1000000).toFixed(1) + 'M';
-              if (v >= 1000) return sym + (v / 1000).toFixed(0) + 'K';
-              return sym + v.toFixed(2);
-            }
-          }
-        }
-      },
-      interaction: {intersect: false, mode: 'index'},
+  // 予測を保存 & 検証
+  var currentPrices={};
+  COINS.forEach(function(c){
+    var d=coinData[c.id];
+    if(d&&d.prices.length>0){
+      var lastPrice=d.prices[d.prices.length-1];
+      currentPrices[c.id]=lastPrice;
+      var pred=PREDICT[c.profile](d.prices);
+      var dir=pred>lastPrice?'up':'down';
+      savePrediction(c.id,lastPrice,pred,dir);
     }
   });
+
+  // 予測検証を表示
+  var vResult=verifyPredictions(currentPrices);
+  var histEl=document.getElementById('predHistory');
+  if(vResult.total>0){
+    histEl.style.display='block';
+    document.getElementById('predAccText').textContent=
+      vResult.correct+'/'+vResult.total+' 的中 ('+vResult.accuracy+'%)';
+  }
+
+  setStatus('更新完了');
+  renderCoin(currentCoin);
+  startTimer();
 }
 
-function renderJudge(data) {
-  const score = data.score;
-  const arcLen = 251.3;
-  const pct = Math.min(score, 100) / 100;
-  document.getElementById('gaugeArc').setAttribute('stroke-dasharray', `${arcLen * pct} ${arcLen}`);
-
-  let color = 'var(--yellow)';
-  if (score >= 65) color = 'var(--green)';
-  else if (score >= 55) color = 'var(--cyan)';
-  else if (score <= 35) color = 'var(--red)';
-  else if (score <= 45) color = 'var(--orange)';
-  document.getElementById('gaugeArc').setAttribute('stroke', color);
-  document.getElementById('gaugeText').textContent = score.toFixed(1);
-
-  const bt = data.backtest;
-  const confidence = Math.max(0, Math.min(100, 100 - bt.mape * 10));
-  document.getElementById('judgeDetails').innerHTML = `
-    <div class="info-row"><span class="k">\u30E2\u30C7\u30EB\u4FE1\u983C\u5EA6</span><span class="v">${confidence.toFixed(1)}%</span></div>
-    <div class="info-row"><span class="k">\u65B9\u5411\u7CBE\u5EA6</span><span class="v">${bt.direction}%</span></div>
-    <div class="info-row"><span class="k">7\u65E5\u5909\u52D5\u4E88\u6E2C</span><span class="v" style="color:${data.fc_change >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtPct(data.fc_change)}</span></div>
-    <div class="info-row"><span class="k">\u30D0\u30C3\u30AF\u30C6\u30B9\u30C8N</span><span class="v">${bt.n}</span></div>
-    <div class="info-row"><span class="k">\u5224\u5B9A</span><span class="v" style="color:${data.recommendation.color}">${data.recommendation.icon} ${data.recommendation.action}</span></div>
-  `;
+// ═══ PRICE FORMATTING ═══
+function formatPrice(price,coinSym,cur){
+  var sym=cur==='jpy'?'\u00a5':'$';
+  var rate=cur==='jpy'?(jpyRate||158.6):1;
+  var dp=price*rate;
+  if(coinSym==='SHIB')return sym+dp.toFixed(cur==='jpy'?4:10);
+  if(dp>=100)return sym+Math.round(dp).toLocaleString();
+  return sym+dp.toPrecision(4);
 }
 
-function renderModels(data) {
-  const body = document.getElementById('modelBody');
-  if (!data.individual) { body.innerHTML = '<tr><td colspan="5">\u30C7\u30FC\u30BF\u306A\u3057</td></tr>'; return; }
-  const sorted = data.individual.map((m, i) => ({...m, idx: i})).sort((a, b) => a.mape - b.mape);
-  body.innerHTML = sorted.map((m, rank) => {
-    let badge;
-    if (rank === 0) badge = '<span class="rank-badge rank-1">1</span>';
-    else if (rank === 1) badge = '<span class="rank-badge rank-2">2</span>';
-    else if (rank === 2) badge = '<span class="rank-badge rank-3">3</span>';
-    else badge = `<span style="margin-right:4px;color:var(--dim)">${rank + 1}</span>`;
-    const dirColor = m.direction >= 60 ? 'var(--green)' : m.direction >= 50 ? 'var(--yellow)' : 'var(--red)';
-    return `<tr><td>${badge}</td><td>${m.name}</td><td>${m.mape}%</td><td style="color:${dirColor}">${m.direction}%</td><td style="color:var(--dim)">${m.n}</td></tr>`;
-  }).join('');
+// ═══ RENDER ═══
+function renderCoin(coin){
+  currentCoin=coin;
+  var data=coinData[coin.id];
+  if(!data){document.getElementById('priceMain').textContent='データなし';return;}
+
+  var p=data.prices,last=p[p.length-1],prev=p[p.length-2]||last;
+  var chg=((last-prev)/prev*100);
+
+  // 現在価格
+  document.getElementById('priceMain').textContent=formatPrice(last,coin.sym,currency);
+  var chgEl=document.getElementById('priceChange');
+  chgEl.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';
+  chgEl.className='price-change '+(chg>=0?'up':'down');
+
+  // 予測
+  var pred=PREDICT[coin.profile](p);
+  var predDir=pred>last?'up':pred<last?'down':'flat';
+  var predChg=((pred-last)/last*100);
+  document.getElementById('predPrice').textContent=formatPrice(pred,coin.sym,currency);
+  var dirEl=document.getElementById('predDir');
+  dirEl.textContent=(predChg>=0?'\u2191+':'\u2193')+predChg.toFixed(2)+'%';
+  dirEl.className='pred-dir '+predDir;
+  document.getElementById('predIcon').textContent=predDir==='up'?'\uD83D\uDCC8':predDir==='down'?'\uD83D\uDCC9':'\uD83D\uDCCA';
+
+  // USD/JPY & 要因分解
+  var rate=jpyRate||158.6;
+  document.getElementById('jpyRate').textContent='\u00a5'+rate.toFixed(1);
+  var cryptoChg=((last-prev)/prev*100);
+  var cryptoEl=document.getElementById('decompCrypto');
+  cryptoEl.textContent=(cryptoChg>=0?'+':'')+cryptoChg.toFixed(2)+'%';
+  cryptoEl.className=cryptoChg>=0?'up':'down';
+  var fxEl=document.getElementById('decompFx');
+  if(prevJpyRate&&prevJpyRate!==rate){
+    var fxChg=((rate-prevJpyRate)/prevJpyRate*100);
+    fxEl.textContent=(fxChg>=0?'+':'')+fxChg.toFixed(2)+'%';
+    fxEl.className=fxChg>=0?'up':'down';
+  }else{
+    fxEl.textContent='---';
+    fxEl.className='';
+  }
+
+  // ボラティリティ & アラート
+  var vol=volRegime(p);
+  var anomaly=detectAnomaly(p);
+  var alertBox=document.getElementById('alertBox');
+  if(anomaly){alertBox.className='alert-box danger';alertBox.textContent=anomaly;}
+  else if(vol.regime==='low'){alertBox.className='alert-box warning';alertBox.textContent='\u26A0\uFE0F レンジ相場：予測精度低下中。様子見推奨。';}
+  else{alertBox.className='alert-box';alertBox.style.display='none';}
+
+  // バックテスト
+  var bt=backtest(p,coin.profile);
+
+  // 情報グリッド
+  var dirAcc=(DIR_ACC[coin.profile]||{})[coin.sym]||bt.dir;
+  document.getElementById('infoDirAcc').textContent=Math.round(dirAcc)+'%';
+  var stars=Math.round(Math.min(5,dirAcc/20));
+  var starStr='';
+  for(var si=0;si<5;si++)starStr+=si<stars?'\u2605':'\u2606';
+  document.getElementById('infoReliability').textContent=starStr;
+  document.getElementById('infoVol').textContent=vol.regime==='high'?'\u9AD8\u26A1':vol.regime==='low'?'\u4F4E\uD83D\uDCCA':'\u4E2D';
+  document.getElementById('infoMape').textContent=bt.mape.toFixed(2)+'%';
+
+  // エントリー提案
+  var ee=suggestEntry(last,pred,p);
+  if(ee){
+    document.getElementById('entryBuy').textContent=formatPrice(ee.entry,coin.sym,currency);
+    document.getElementById('entryTarget').textContent=formatPrice(ee.target,coin.sym,currency);
+    document.getElementById('entryStop').textContent=formatPrice(ee.stop,coin.sym,currency);
+    document.getElementById('entryRR').textContent=ee.rr.toFixed(1)+':1'+(ee.rr>=1.5?' \u2705':'');
+  }
+
+  // スコア & 判定
+  var score=Math.min(100,bt.dir*0.5+Math.max(0,100-bt.mape*10)*0.3+(predChg>0?60:40)*0.2);
+  if(vol.regime==='low')score=Math.min(score,50);
+  document.getElementById('scoreNum').textContent=Math.round(score);
+  var recEl=document.getElementById('recBadge');
+  if(score>=65){recEl.textContent='\uD83D\uDCC8 買い検討';recEl.className='rec-badge rec-buy';}
+  else if(score<=35){recEl.textContent='\uD83D\uDCC9 売り検討';recEl.className='rec-badge rec-sell';}
+  else{recEl.textContent='\uD83D\uDCCA 様子見';recEl.className='rec-badge rec-hold';}
+
+  // チャート
+  renderChart(data,coin);
+
+  // 銘柄バー強調
+  document.querySelectorAll('.coin-btn').forEach(function(b){
+    b.className='coin-btn'+(b.dataset.id===coin.id?' active':'');
+  });
 }
 
-function renderOptimize(data) {
-  const bt = data.backtest;
-  document.getElementById('optimizeInfo').innerHTML = `
-    <div class="info-row"><span class="k">\u30A2\u30F3\u30B5\u30F3\u30D6\u30EB\u65B9\u5F0F</span><span class="v">\u5747\u7B49\u91CD\u307F\u5E73\u5747</span></div>
-    <div class="info-row"><span class="k">\u30E2\u30C7\u30EB\u6570</span><span class="v">9</span></div>
-    <div class="info-row"><span class="k">\u4E88\u6E2C\u30DB\u30E9\u30A4\u30BA\u30F3</span><span class="v">1-7\u65E5</span></div>
-    <div class="info-row"><span class="k">\u30C0\u30F3\u30D4\u30F3\u30B0\u4FC2\u6570</span><span class="v">1/(1+d*0.08)</span></div>
-    <div class="info-row"><span class="k">\u4FE1\u983C\u533A\u9593</span><span class="v">95% (1.96\u03C3)</span></div>
-    <div class="info-row"><span class="k">\u30C7\u30FC\u30BF\u671F\u9593</span><span class="v">180\u65E5 OHLCV</span></div>
-    <div class="info-row"><span class="k">\u30AD\u30E3\u30C3\u30B7\u30E5TTL</span><span class="v">120\u79D2</span></div>
-    <div class="info-row"><span class="k">\u30CA\u30A4\u30FC\u30D6\u8D85\u3048</span><span class="v">${bt.mape < 3 ? 'Yes' : 'No'}</span></div>
-  `;
+// ═══ CHART ═══
+function renderChart(data,coin){
+  var ctx=document.getElementById('mainChart');
+  if(chart)chart.destroy();
+  var n=Math.min(chartDays,data.dates.length);
+  var dates=data.dates.slice(-n);
+  var prices=data.prices.slice(-n);
+  var rate=currency==='jpy'?(jpyRate||158.6):1;
+
+  if(chartType==='candle'){
+    // ローソク足（棒グラフで疑似表現）
+    var opens=data.opens.slice(-n).map(function(v){return v*rate});
+    var highs=data.highs.slice(-n).map(function(v){return v*rate});
+    var lows=data.lows.slice(-n).map(function(v){return v*rate});
+    var closes=prices.map(function(v){return v*rate});
+
+    // ローソク足をfloating barで表現
+    var bodyData=closes.map(function(c,i){
+      var o=opens[i];
+      return c>=o?[o,c]:[c,o];
+    });
+    var colors=closes.map(function(c,i){return c>=opens[i]?'rgba(16,185,129,0.8)':'rgba(239,68,68,0.8)'});
+
+    chart=new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:dates.map(function(d){return d.slice(5)}),
+        datasets:[{
+          data:bodyData,
+          backgroundColor:colors,
+          borderColor:colors,
+          borderWidth:1,
+          barPercentage:0.6
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        animation:{duration:0},
+        plugins:{legend:{display:false},tooltip:{
+          callbacks:{
+            label:function(ctx){
+              var i=ctx.dataIndex;
+              return 'O:'+opens[i].toFixed(0)+' H:'+highs[i].toFixed(0)+' L:'+lows[i].toFixed(0)+' C:'+closes[i].toFixed(0);
+            }
+          }
+        }},
+        scales:{
+          x:{ticks:{maxTicksLimit:6,font:{size:9},color:'#64748b'},grid:{display:false}},
+          y:{ticks:{font:{size:9},color:'#64748b',callback:function(v){return v>1000?Math.round(v/1000)+'k':v.toPrecision(3)}},grid:{color:'rgba(30,41,59,0.5)'}}
+        }
+      }
+    });
+  }else{
+    // ラインチャート
+    var displayPrices=prices.map(function(p){return p*rate});
+    chart=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels:dates.map(function(d){return d.slice(5)}),
+        datasets:[{
+          data:displayPrices,
+          borderColor:'#22d3ee',
+          backgroundColor:'rgba(34,211,238,0.08)',
+          borderWidth:1.5,
+          pointRadius:0,
+          fill:true,
+          tension:0.3
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        animation:{duration:0},
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{ticks:{maxTicksLimit:6,font:{size:9},color:'#64748b'},grid:{display:false}},
+          y:{ticks:{font:{size:9},color:'#64748b',callback:function(v){return v>1000?Math.round(v/1000)+'k':v.toPrecision(3)}},grid:{color:'rgba(30,41,59,0.5)'}}
+        }
+      }
+    });
+  }
 }
 
-function renderVerify(data) {
-  const bt = data.backtest;
-  document.getElementById('verifyInfo').innerHTML = `
-    <div class="info-row"><span class="k">\u30C6\u30B9\u30C8\u671F\u9593</span><span class="v">\u76F4\u8FD130% (${bt.n}\u65E5)</span></div>
-    <div class="info-row"><span class="k">MAPE</span><span class="v">${bt.mape}%</span></div>
-    <div class="info-row"><span class="k">\u65B9\u5411\u7CBE\u5EA6</span><span class="v">${bt.direction}%</span></div>
-    <div class="info-row"><span class="k">\u30C6\u30B9\u30C8\u30B5\u30F3\u30D7\u30EB</span><span class="v">${bt.n}</span></div>
-    <div style="margin-top:12px;padding:10px;background:var(--card2);border-radius:8px;font-size:11px;color:var(--dim)">
-      <div style="margin-bottom:6px;color:var(--text);font-weight:600">\u53C2\u8003: CoinLore\u5B9F\u30C7\u30FC\u30BF\u691C\u8A3C</div>
-      <div>\u2022 S/R\u30EC\u30D9\u30EB: MAPE 1.74%, \u65B9\u521176%</div>
-      <div>\u2022 \u5168\u30E2\u30C7\u30EB\u7D71\u5408: MAPE 1.77%, \u65B9\u521171%</div>
-      <div>\u2022 ATR: MAPE 1.75%, \u65B9\u521165%</div>
-      <div>\u2022 \u30CA\u30A4\u30FC\u30D6\u57FA\u6E96: MAPE 1.84%, \u65B9\u521150%</div>
-    </div>
-  `;
+// ═══ UI HELPERS ═══
+function buildCoinBar(){
+  var bar=document.getElementById('coinBar');
+  COINS.forEach(function(c){
+    var b=document.createElement('button');
+    b.className='coin-btn'+(c===currentCoin?' active':'');
+    b.textContent=c.sym;
+    b.dataset.id=c.id;
+    b.onclick=function(){renderCoin(c)};
+    bar.appendChild(b);
+  });
 }
+
+function setCurrency(c){
+  currency=c;
+  document.getElementById('btnJpy').className='btn-cur'+(c==='jpy'?' active':'');
+  document.getElementById('btnUsd').className='btn-cur'+(c==='usd'?' active':'');
+  renderCoin(currentCoin);
+}
+
+function setChartType(t,el){
+  chartType=t;
+  document.querySelectorAll('.chart-btn[data-group="type"]').forEach(function(b){
+    b.className='chart-btn'+(b===el?' active':'');
+  });
+  renderCoin(currentCoin);
+}
+
+function setDays(d,el){
+  chartDays=d;
+  document.querySelectorAll('.chart-btn[data-group="period"]').forEach(function(b){
+    b.className='chart-btn'+(b===el?' active':'');
+  });
+  renderCoin(currentCoin);
+}
+
+function setTab(idx,el){
+  document.querySelectorAll('.tab').forEach(function(t){t.className='tab'});
+  el.className='tab active';
+  var tc=document.getElementById('tabContent');
+  var data=coinData[currentCoin.id];
+  if(!data)return;
+  var p=data.prices,bt=backtest(p,currentCoin.profile);
+
+  if(idx===0){
+    var pred=PREDICT[currentCoin.profile](p);
+    var predChg=((pred-p[p.length-1])/p[p.length-1]*100);
+    var score=Math.min(100,bt.dir*0.5+Math.max(0,100-bt.mape*10)*0.3+(predChg>0?60:40)*0.2);
+    var vol=volRegime(p);if(vol.regime==='low')score=Math.min(score,50);
+    var rec,cls;
+    if(score>=65){rec='\uD83D\uDCC8 買い検討';cls='rec-buy';}
+    else if(score<=35){rec='\uD83D\uDCC9 売り検討';cls='rec-sell';}
+    else{rec='\uD83D\uDCCA 様子見';cls='rec-hold';}
+    tc.innerHTML='<div class="score-gauge"><div class="score-num">'+Math.round(score)+'</div><div class="score-label">総合スコア</div><div class="rec-badge '+cls+'">'+rec+'</div></div>';
+  }else if(idx===1){
+    var mn=MODEL_NAMES[currentCoin.profile];
+    tc.innerHTML='<table class="model-table"><tr><th>モデル</th><th>方向精度</th><th>MAPE</th><th>テスト数</th></tr>'+
+      '<tr><td>'+mn+'</td><td>'+bt.dir.toFixed(0)+'%</td><td>'+bt.mape.toFixed(2)+'%</td><td>'+bt.n+'</td></tr>'+
+      '<tr><td>ナイーブ</td><td>50%</td><td>'+bt.naive.toFixed(2)+'%</td><td>'+bt.n+'</td></tr></table>'+
+      '<div style="margin-top:12px;font-size:10px;color:var(--dim)">プロファイル: '+currentCoin.profile+' \u2014 '+mn+'<br>モデルの勝利: '+(bt.mape<bt.naive?'\u2705 ナイーブに勝利':'\u274C ナイーブに敗北')+'</div>';
+  }else{
+    tc.innerHTML='<div style="font-size:12px"><b>直近'+bt.n+'回のバックテスト結果</b></div>'+
+      '<div style="margin-top:8px">'+
+      '<div class="entry-row"><span class="entry-label">方向精度</span><span class="entry-val">'+bt.dir.toFixed(0)+'%</span></div>'+
+      '<div class="entry-row"><span class="entry-label">モデルMAPE</span><span class="entry-val">'+bt.mape.toFixed(2)+'%</span></div>'+
+      '<div class="entry-row"><span class="entry-label">ナイーブMAPE</span><span class="entry-val">'+bt.naive.toFixed(2)+'%</span></div>'+
+      '<div class="entry-row"><span class="entry-label">勝敗</span><span class="entry-val">'+(bt.mape<bt.naive?'\u2705 Model WIN':'\u274C Naive WIN')+'</span></div>'+
+      '</div>'+
+      '<div style="margin-top:12px;font-size:10px;color:var(--dim)">\u203B CoinGecko日足180日データで検証</div>';
+  }
+}
+
+function setStatus(t){document.getElementById('statusText').textContent=t;}
+
+function startTimer(){
+  var sec=120;
+  if(refreshTimer)clearInterval(refreshTimer);
+  refreshTimer=setInterval(function(){
+    sec--;
+    document.getElementById('timerText').textContent=sec+'秒後に更新';
+    if(sec<=0){sec=120;loadAllData();}
+  },1000);
+}
+
+// ═══ INIT ═══
+buildCoinBar();
+loadAllData();
 </script>
 </body>
 </html>
