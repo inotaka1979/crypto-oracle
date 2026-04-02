@@ -549,31 +549,57 @@ function renderChart(data,coin){
   var rate=currency==='jpy'?(jpyRate||158.6):1;
 
   if(chartType==='candle'){
-    // ローソク足（棒グラフで疑似表現）
-    var opens=data.opens.slice(-n).map(function(v){return v*rate});
-    var highs=data.highs.slice(-n).map(function(v){return v*rate});
-    var lows=data.lows.slice(-n).map(function(v){return v*rate});
-    var closes=prices.map(function(v){return v*rate});
+    // ローソク足（lineチャート上にプラグインで描画）
+    var cOpens=data.opens.slice(-n).map(function(v){return v*rate});
+    var cHighs=data.highs.slice(-n).map(function(v){return v*rate});
+    var cLows=data.lows.slice(-n).map(function(v){return v*rate});
+    var cCloses=prices.map(function(v){return v*rate});
 
-    // ローソク足をfloating barで表現
-    var bodyData=closes.map(function(c,i){
-      var o=opens[i];
-      return c>=o?[o,c]:[c,o];
-    });
-    var colors=closes.map(function(c,i){return c>=opens[i]?'rgba(16,185,129,0.8)':'rgba(239,68,68,0.8)'});
+    var candlePlugin={
+      id:'candlestick',
+      afterDatasetsDraw:function(chart){
+        var meta=chart.getDatasetMeta(0);
+        var yScale=chart.scales.y;
+        var chartCtx=chart.ctx;
+        meta.data.forEach(function(point,i){
+          var x=point.x;
+          var o=yScale.getPixelForValue(cOpens[i]);
+          var h=yScale.getPixelForValue(cHighs[i]);
+          var l=yScale.getPixelForValue(cLows[i]);
+          var c=yScale.getPixelForValue(cCloses[i]);
+          var isUp=cCloses[i]>=cOpens[i];
+          var color=isUp?'#10b981':'#ef4444';
+          var w=Math.max(3,Math.min(12,(chart.width/n)*0.6));
 
-    // ヒゲ（高値-安値）のデータ
-    var wickData=lows.map(function(l,i){return[l,highs[i]]});
-    var wickColors=closes.map(function(c,i){return c>=opens[i]?'rgba(16,185,129,0.5)':'rgba(239,68,68,0.5)'});
+          // ヒゲ
+          chartCtx.beginPath();
+          chartCtx.strokeStyle=color;
+          chartCtx.lineWidth=1;
+          chartCtx.moveTo(x,h);
+          chartCtx.lineTo(x,l);
+          chartCtx.stroke();
+
+          // 実体
+          var top=isUp?c:o;
+          var bot=isUp?o:c;
+          var bodyH=Math.max(1,bot-top);
+          chartCtx.fillStyle=color;
+          chartCtx.fillRect(x-w/2,top,w,bodyH);
+        });
+      }
+    };
 
     chart=new Chart(ctx,{
-      type:'bar',
+      type:'line',
       data:{
         labels:dates.map(function(d){return d.slice(5)}),
-        datasets:[
-          {data:wickData,backgroundColor:wickColors,borderColor:wickColors,borderWidth:0,barPercentage:0.15,order:1},
-          {data:bodyData,backgroundColor:colors,borderColor:colors,borderWidth:1,barPercentage:0.6,order:0}
-        ]
+        datasets:[{
+          data:cCloses,
+          borderColor:'transparent',
+          backgroundColor:'transparent',
+          pointRadius:0,
+          fill:false
+        }]
       },
       options:{
         responsive:true,maintainAspectRatio:false,
@@ -582,15 +608,19 @@ function renderChart(data,coin){
           callbacks:{
             label:function(tip){
               var i=tip.dataIndex;
-              return 'O:'+opens[i].toFixed(0)+' H:'+highs[i].toFixed(0)+' L:'+lows[i].toFixed(0)+' C:'+closes[i].toFixed(0);
+              return 'O:'+cOpens[i].toFixed(0)+' H:'+cHighs[i].toFixed(0)+' L:'+cLows[i].toFixed(0)+' C:'+cCloses[i].toFixed(0);
             }
           }
         }},
         scales:{
-          x:{ticks:{maxTicksLimit:6,font:{size:9},color:'#64748b'},grid:{display:false},stacked:true},
-          y:{beginAtZero:false,ticks:{font:{size:9},color:'#64748b',callback:function(v){return v>1000?Math.round(v/1000)+'k':v.toPrecision(3)}},grid:{color:'rgba(30,41,59,0.5)'}}
+          x:{ticks:{maxTicksLimit:6,font:{size:9},color:'#64748b'},grid:{display:false}},
+          y:{beginAtZero:false,
+            min:Math.min.apply(null,cLows)*0.998,
+            max:Math.max.apply(null,cHighs)*1.002,
+            ticks:{font:{size:9},color:'#64748b',callback:function(v){return v>1000?Math.round(v/1000)+'k':v.toPrecision(3)}},grid:{color:'rgba(30,41,59,0.5)'}}
         }
-      }
+      },
+      plugins:[candlePlugin]
     });
   }else{
     // ラインチャート
