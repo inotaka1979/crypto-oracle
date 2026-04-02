@@ -562,32 +562,33 @@ function renderChart(data,coin){
     });
     var colors=closes.map(function(c,i){return c>=opens[i]?'rgba(16,185,129,0.8)':'rgba(239,68,68,0.8)'});
 
+    // ヒゲ（高値-安値）のデータ
+    var wickData=lows.map(function(l,i){return[l,highs[i]]});
+    var wickColors=closes.map(function(c,i){return c>=opens[i]?'rgba(16,185,129,0.5)':'rgba(239,68,68,0.5)'});
+
     chart=new Chart(ctx,{
       type:'bar',
       data:{
         labels:dates.map(function(d){return d.slice(5)}),
-        datasets:[{
-          data:bodyData,
-          backgroundColor:colors,
-          borderColor:colors,
-          borderWidth:1,
-          barPercentage:0.6
-        }]
+        datasets:[
+          {data:wickData,backgroundColor:wickColors,borderColor:wickColors,borderWidth:0,barPercentage:0.15,order:1},
+          {data:bodyData,backgroundColor:colors,borderColor:colors,borderWidth:1,barPercentage:0.6,order:0}
+        ]
       },
       options:{
         responsive:true,maintainAspectRatio:false,
         animation:{duration:0},
         plugins:{legend:{display:false},tooltip:{
           callbacks:{
-            label:function(ctx){
-              var i=ctx.dataIndex;
+            label:function(tip){
+              var i=tip.dataIndex;
               return 'O:'+opens[i].toFixed(0)+' H:'+highs[i].toFixed(0)+' L:'+lows[i].toFixed(0)+' C:'+closes[i].toFixed(0);
             }
           }
         }},
         scales:{
-          x:{ticks:{maxTicksLimit:6,font:{size:9},color:'#64748b'},grid:{display:false}},
-          y:{ticks:{font:{size:9},color:'#64748b',callback:function(v){return v>1000?Math.round(v/1000)+'k':v.toPrecision(3)}},grid:{color:'rgba(30,41,59,0.5)'}}
+          x:{ticks:{maxTicksLimit:6,font:{size:9},color:'#64748b'},grid:{display:false},stacked:true},
+          y:{beginAtZero:false,ticks:{font:{size:9},color:'#64748b',callback:function(v){return v>1000?Math.round(v/1000)+'k':v.toPrecision(3)}},grid:{color:'rgba(30,41,59,0.5)'}}
         }
       }
     });
