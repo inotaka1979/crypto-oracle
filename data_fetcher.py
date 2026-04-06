@@ -36,8 +36,8 @@ def _api_get(url, params=None, retries=5, backoff=3):
     """GET request with retry, backoff, and global rate limiting."""
     global _last_api_call
     elapsed = time.time() - _last_api_call
-    if elapsed < 2.0:
-        time.sleep(2.0 - elapsed)
+    if elapsed < 6.0:
+        time.sleep(6.0 - elapsed)
 
     for attempt in range(retries):
         try:
