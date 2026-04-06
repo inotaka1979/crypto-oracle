@@ -340,34 +340,49 @@ function cacheKey(url){
   return'cache_'+Math.abs(hash);
 }
 
-async function fetchWithFallback(url){
-  var maxRetries=3;
-  for(var attempt=0;attempt<maxRetries;attempt++){
-    try{
-      var res=await fetch(url,{signal:AbortSignal.timeout(15000)});
-      if(res.status===429){
-        var wait=(attempt+1)*8;
-        console.warn('Rate limited, retry in '+wait+'s (attempt '+(attempt+1)+')');
-        setStatus('API制限...'+wait+'秒待機中');
-        await sleep(wait*1000);
-        continue;
-      }
-      if(!res.ok)throw new Error('HTTP '+res.status);
-      var data=await res.json();
-      try{localStorage.setItem(cacheKey(url),JSON.stringify({data:data,time:Date.now()}));}catch(e){}
-      return data;
-    }catch(e){
-      console.warn('API error (attempt '+(attempt+1)+'):',url,e.message);
-      if(attempt<maxRetries-1){await sleep(3000);continue;}
-    }
-  }
+var CACHE_MAX_AGE=1800000; // 30分
+
+function getCache(url){
   try{
     var cached=localStorage.getItem(cacheKey(url));
     if(cached){
       var obj=JSON.parse(cached);
-      if(Date.now()-obj.time<600000)return obj.data;
+      if(Date.now()-obj.time<CACHE_MAX_AGE)return obj.data;
     }
-  }catch(ex){}
+  }catch(e){}
+  return null;
+}
+
+async function fetchAPI(url){
+  try{
+    var res=await fetch(url,{signal:AbortSignal.timeout(15000)});
+    if(res.status===429)return{_rateLimit:true};
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    var data=await res.json();
+    try{localStorage.setItem(cacheKey(url),JSON.stringify({data:data,time:Date.now()}));}catch(e){}
+    return data;
+  }catch(e){
+    console.warn('API error:',url,e.message);
+    return null;
+  }
+}
+
+async function fetchWithFallback(url){
+  // キャッシュがあれば即返し（30分有効）
+  var cached=getCache(url);
+  if(cached)return cached;
+  // キャッシュなし→API呼び出し（リトライ付き）
+  for(var attempt=0;attempt<3;attempt++){
+    var data=await fetchAPI(url);
+    if(data&&data._rateLimit){
+      var wait=(attempt+1)*10;
+      setStatus('API制限...'+wait+'秒待機中');
+      await sleep(wait*1000);
+      continue;
+    }
+    if(data)return data;
+    await sleep(3000);
+  }
   return null;
 }
 
@@ -399,29 +414,9 @@ function parseDailyOHLCV(d){
 
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 
-async function loadAllData(){
-  setStatus('USD/JPY取得中...');
+function coinUrl(id){return API+'/coins/'+id+'/market_chart?vs_currency=usd&days=90';}
 
-  // USD/JPYレート取得（全銘柄のUSD/JPYを一括で取る）
-  var rateData=await fetchWithFallback(API+'/simple/price?ids=bitcoin&vs_currencies=usd,jpy');
-  if(rateData&&rateData.bitcoin&&rateData.bitcoin.jpy&&rateData.bitcoin.usd){
-    prevJpyRate=jpyRate;
-    jpyRate=rateData.bitcoin.jpy/rateData.bitcoin.usd;
-  }
-  if(!jpyRate)jpyRate=158.6;
-
-  // 各銘柄データ取得（6秒間隔 — CoinGecko無料プラン対応）
-  for(var i=0;i<COINS.length;i++){
-    var c=COINS[i];
-    setStatus(c.sym+' 取得中... ('+(i+1)+'/'+COINS.length+')');
-    var data=await fetchWithFallback(API+'/coins/'+c.id+'/market_chart?vs_currency=usd&days=90');
-    if(data&&data.prices){
-      coinData[c.id]=parseDailyOHLCV(data);
-    }
-    if(i<COINS.length-1)await sleep(6000);
-  }
-
-  // 予測を保存 & 検証
+function finalizePredictions(){
   var currentPrices={};
   COINS.forEach(function(c){
     var d=coinData[c.id];
@@ -433,8 +428,6 @@ async function loadAllData(){
       savePrediction(c.id,lastPrice,pred,dir);
     }
   });
-
-  // 予測検証を表示
   var vResult=verifyPredictions(currentPrices);
   var histEl=document.getElementById('predHistory');
   if(vResult.total>0){
@@ -442,7 +435,70 @@ async function loadAllData(){
     document.getElementById('predAccText').textContent=
       vResult.correct+'/'+vResult.total+' 的中 ('+vResult.accuracy+'%)';
   }
+}
 
+async function loadAllData(){
+  // Phase 1: キャッシュから即座に表示
+  var rateUrl=API+'/simple/price?ids=bitcoin&vs_currencies=usd,jpy';
+  var cachedRate=getCache(rateUrl);
+  if(cachedRate&&cachedRate.bitcoin){
+    jpyRate=cachedRate.bitcoin.jpy/cachedRate.bitcoin.usd;
+  }
+  if(!jpyRate)jpyRate=158.6;
+
+  var needFetch=[];
+  COINS.forEach(function(c){
+    var cached=getCache(coinUrl(c.id));
+    if(cached&&cached.prices){
+      coinData[c.id]=parseDailyOHLCV(cached);
+    }else{
+      needFetch.push(c);
+    }
+  });
+
+  var cachedCount=COINS.length-needFetch.length;
+  if(cachedCount>0){
+    setStatus(cachedCount+'銘柄をキャッシュから表示');
+    renderCoin(currentCoin);
+    finalizePredictions();
+  }
+
+  // Phase 2: キャッシュにない銘柄+期限切れをAPI取得（12秒間隔）
+  if(needFetch.length>0||cachedCount===COINS.length){
+    // 全キャッシュヒットでもレート更新
+    var rateData=await fetchAPI(rateUrl);
+    if(rateData&&!rateData._rateLimit&&rateData.bitcoin){
+      prevJpyRate=jpyRate;
+      jpyRate=rateData.bitcoin.jpy/rateData.bitcoin.usd;
+    }
+    await sleep(2000);
+  }
+
+  var staleCoins=[];
+  if(needFetch.length===0){
+    // 全キャッシュヒット→バックグラウンドで順次更新
+    staleCoins=COINS.slice();
+  }else{
+    staleCoins=needFetch;
+  }
+
+  for(var i=0;i<staleCoins.length;i++){
+    var c=staleCoins[i];
+    setStatus(c.sym+' 取得中... ('+(i+1)+'/'+staleCoins.length+')');
+    var data=await fetchAPI(coinUrl(c.id));
+    if(data&&data._rateLimit){
+      // レートリミット→残りは次回に持ち越し
+      setStatus('API制限 — 未取得分は次回更新');
+      break;
+    }
+    if(data&&data.prices){
+      coinData[c.id]=parseDailyOHLCV(data);
+      renderCoin(currentCoin);
+    }
+    if(i<staleCoins.length-1)await sleep(12000);
+  }
+
+  finalizePredictions();
   setStatus('更新完了');
   renderCoin(currentCoin);
   startTimer();
@@ -732,12 +788,12 @@ function setTab(idx,el){
 function setStatus(t){document.getElementById('statusText').textContent=t;}
 
 function startTimer(){
-  var sec=120;
+  var sec=300;
   if(refreshTimer)clearInterval(refreshTimer);
   refreshTimer=setInterval(function(){
     sec--;
     document.getElementById('timerText').textContent=sec+'秒後に更新';
-    if(sec<=0){sec=120;loadAllData();}
+    if(sec<=0){sec=300;loadAllData();}
   },1000);
 }
 
